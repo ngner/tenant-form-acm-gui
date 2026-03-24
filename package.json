@@ -40,7 +40,7 @@
       "CreateTenantPage": "./components/CreateTenantPage"
     },
     "dependencies": {
-      "@console/pluginAPI": "^4.21.0"
+      "@console/pluginAPI": "*"
     }
   }
 }

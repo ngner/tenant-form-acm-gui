@@ -32,13 +32,13 @@ spec:
               memory: 128Mi
           readinessProbe:
             httpGet:
-              path: /
+              path: /plugin-manifest.json
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /
+              path: /plugin-manifest.json
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 30

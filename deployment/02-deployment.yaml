@@ -17,12 +17,25 @@ spec:
       labels:
         app: tenant-form-acm-gui
     spec:
+      volumes:
+        - name: serving-cert
+          secret:
+            secretName: tenant-form-acm-gui-cert
+            defaultMode: 420
       containers:
         - name: tenant-form-acm-gui
           image: quay.io/nday/tenant-form-acm-gui:latest
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
               protocol: TCP
+            - name: https
+              containerPort: 9443
+              protocol: TCP
+          volumeMounts:
+            - name: serving-cert
+              mountPath: /var/serving-cert
+              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -51,10 +64,12 @@ metadata:
   labels:
     app: tenant-form-acm-gui
     app.kubernetes.io/part-of: tenant-form-acm-gui
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: tenant-form-acm-gui-cert
 spec:
   selector:
     app: tenant-form-acm-gui
   ports:
     - port: 9443
-      targetPort: 8080
+      targetPort: 9443
       protocol: TCP

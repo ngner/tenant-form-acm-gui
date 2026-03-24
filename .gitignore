@@ -1,0 +1,4 @@
+.cursor*
+*spec.md
+node_modules/
+dist/

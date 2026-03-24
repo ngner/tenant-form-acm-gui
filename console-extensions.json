@@ -1,0 +1,22 @@
+[
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "create-tenant",
+      "name": "Create Tenant",
+      "href": "/tenant-create",
+      "perspective": "admin",
+      "section": "home"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/tenant-create",
+      "component": {
+        "$codeRef": "CreateTenantPage"
+      }
+    }
+  }
+]

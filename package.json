@@ -1,0 +1,46 @@
+{
+  "name": "tenant-form-acm-gui",
+  "version": "0.0.1",
+  "description": "OpenShift Console Plugin for creating Tenant custom resources",
+  "private": true,
+  "license": "Apache-2.0",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && NODE_ENV=production npm run webpack",
+    "build-dev": "npm run clean && npm run webpack",
+    "start": "npm run webpack -- serve --progress",
+    "webpack": "node -r ts-node/register ./node_modules/.bin/webpack"
+  },
+  "devDependencies": {
+    "@openshift-console/dynamic-plugin-sdk": "4.21-latest",
+    "@openshift-console/dynamic-plugin-sdk-webpack": "4.21-latest",
+    "@patternfly/react-core": "^6.2.2",
+    "@patternfly/react-icons": "^6.2.2",
+    "@types/node": "^22.0.0",
+    "@types/react": "^17.0.37",
+    "@types/react-router-dom": "^5.3.3",
+    "css-loader": "^7.1.4",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
+    "react-router-dom": "5.3.x",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "webpack": "^5.100.0",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.3"
+  },
+  "consolePlugin": {
+    "name": "tenant-form-acm-gui",
+    "version": "0.0.1",
+    "displayName": "Tenant Management",
+    "description": "Create Tenant custom resources from a guided form in the ACM console.",
+    "exposedModules": {
+      "CreateTenantPage": "./components/CreateTenantPage"
+    },
+    "dependencies": {
+      "@console/pluginAPI": "^4.21.0"
+    }
+  }
+}

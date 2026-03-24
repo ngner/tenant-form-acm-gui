@@ -5,8 +5,7 @@
       "id": "create-tenant",
       "name": "Create Tenant",
       "href": "/tenant-create",
-      "perspective": "admin",
-      "section": "home"
+      "perspective": "acm"
     }
   },
   {

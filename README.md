@@ -65,111 +65,70 @@ podman push quay.io/nday/tenant-form-acm-gui:latest
 
 ## Cluster Deployment
 
-### 1. Create the namespace and deploy the plugin server
+All Kubernetes manifests and helper scripts live in the `deployment/` directory.
+Clone the repo to your bastion host, log in with `oc`, and run the deploy
+script:
 
 ```bash
-oc new-project tenant-form-acm-gui
+git clone https://github.com/ngner/tenant-form-acm-gui.git
+cd tenant-form-acm-gui
+
+oc login https://<api-server>:6443 -u <user>
+
+./deployment/deploy.sh
 ```
 
-Create the Deployment and Service. Replace the image reference with your
-registry path:
+The script applies everything in order — CRD, namespace, Deployment + Service,
+ConsolePlugin registration — and enables the plugin on the cluster console.
 
-```yaml
-# deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: tenant-form-acm-gui
-  namespace: tenant-form-acm-gui
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: tenant-form-acm-gui
-  template:
-    metadata:
-      labels:
-        app: tenant-form-acm-gui
-    spec:
-      containers:
-        - name: tenant-form-acm-gui
-          image: quay.io/nday/tenant-form-acm-gui:latest
-          ports:
-            - containerPort: 8080
-              protocol: TCP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: tenant-form-acm-gui
-  namespace: tenant-form-acm-gui
-spec:
-  selector:
-    app: tenant-form-acm-gui
-  ports:
-    - port: 9443
-      targetPort: 8080
-      protocol: TCP
-```
+To use a custom image, set the `IMAGE` environment variable:
 
 ```bash
-oc apply -f deployment.yaml
+IMAGE=quay.io/myorg/tenant-form-acm-gui:v1.2.0 ./deployment/deploy.sh
 ```
 
-### 2. Register the ConsolePlugin
+### What gets created
+
+| File | Resources |
+| ---- | --------- |
+| `deployment/00-namespace.yaml` | Namespace `tenant-form-acm-gui` |
+| `deployment/01-tenant-crd.yaml` | CRD `tenants.dusty-seahorse.io` |
+| `deployment/02-deployment.yaml` | Deployment + Service (nginx serving the plugin bundle) |
+| `deployment/03-consoleplugin.yaml` | ConsolePlugin CR that registers the plugin with the console |
+
+### Manual deployment
+
+If you prefer to apply manifests individually:
 
 ```bash
-cat <<'EOF' | oc apply -f -
-apiVersion: console.openshift.io/v1
-kind: ConsolePlugin
-metadata:
-  name: tenant-form-acm-gui
-spec:
-  displayName: Tenant Management
-  backend:
-    type: Service
-    service:
-      name: tenant-form-acm-gui
-      namespace: tenant-form-acm-gui
-      port: 9443
-EOF
-```
+oc apply -f deployment/01-tenant-crd.yaml
+oc apply -f deployment/00-namespace.yaml
+oc apply -f deployment/02-deployment.yaml
+oc apply -f deployment/03-consoleplugin.yaml
 
-### 3. Enable the plugin
-
-```bash
 oc patch console.operator cluster --type merge \
   --patch '{"spec":{"plugins":["tenant-form-acm-gui"]}}'
 ```
 
-After the console pods restart (typically 30–60 seconds), a **Create Tenant**
-link appears under **Home** in the admin perspective sidebar.
-
 ### Verify
 
 ```bash
-# Check the plugin pod is running
 oc get pods -n tenant-form-acm-gui
-
-# Confirm the plugin is registered
 oc get consoleplugins
 ```
 
-Navigate to `https://<console-url>/tenant-create` to access the form directly.
+After the console pods restart (typically 30–60 seconds), a **Create Tenant**
+link appears under **Home** in the admin perspective sidebar. Navigate to
+`https://<console-url>/tenant-create` to access the form directly.
 
 ## Uninstall
 
 ```bash
-# Remove the plugin from the console
-oc patch console.operator cluster --type json \
-  --patch '[{"op":"remove","path":"/spec/plugins","value":"tenant-form-acm-gui"}]'
-
-# Delete the ConsolePlugin CR
-oc delete consoleplugin tenant-form-acm-gui
-
-# Delete the namespace (removes Deployment + Service)
-oc delete project tenant-form-acm-gui
+./deployment/undeploy.sh
 ```
+
+The script removes the console plugin, deletes the namespace (which takes the
+Deployment and Service with it), and optionally deletes the Tenant CRD.
 
 ## Project Layout
 
@@ -179,7 +138,14 @@ oc delete project tenant-form-acm-gui
 ├── package.json              # Dependencies + consolePlugin metadata
 ├── tsconfig.json             # TypeScript configuration
 ├── webpack.config.ts         # Webpack with ConsoleRemotePlugin
-├── tenant-crd.yaml           # Tenant CRD definition
+├── tenant-crd.yaml           # Tenant CRD definition (source of truth)
+├── deployment/
+│   ├── 00-namespace.yaml     # Namespace
+│   ├── 01-tenant-crd.yaml    # Tenant CRD
+│   ├── 02-deployment.yaml    # Deployment + Service
+│   ├── 03-consoleplugin.yaml # ConsolePlugin registration
+│   ├── deploy.sh             # One-command install
+│   └── undeploy.sh           # One-command teardown
 └── src/
     ├── models.ts             # K8sModel for dusty-seahorse.io/v1alpha1 Tenant
     └── components/

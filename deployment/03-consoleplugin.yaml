@@ -1,0 +1,13 @@
+---
+apiVersion: console.openshift.io/v1
+kind: ConsolePlugin
+metadata:
+  name: tenant-form-acm-gui
+spec:
+  displayName: Tenant Management
+  backend:
+    type: Service
+    service:
+      name: tenant-form-acm-gui
+      namespace: tenant-form-acm-gui
+      port: 9443

@@ -1,0 +1,60 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenant-form-acm-gui
+  namespace: tenant-form-acm-gui
+  labels:
+    app: tenant-form-acm-gui
+    app.kubernetes.io/part-of: tenant-form-acm-gui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenant-form-acm-gui
+  template:
+    metadata:
+      labels:
+        app: tenant-form-acm-gui
+    spec:
+      containers:
+        - name: tenant-form-acm-gui
+          image: quay.io/nday/tenant-form-acm-gui:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tenant-form-acm-gui
+  namespace: tenant-form-acm-gui
+  labels:
+    app: tenant-form-acm-gui
+    app.kubernetes.io/part-of: tenant-form-acm-gui
+spec:
+  selector:
+    app: tenant-form-acm-gui
+  ports:
+    - port: 9443
+      targetPort: 8080
+      protocol: TCP

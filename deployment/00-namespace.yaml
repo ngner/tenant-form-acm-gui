@@ -1,0 +1,7 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-form-acm-gui
+  labels:
+    app.kubernetes.io/part-of: tenant-form-acm-gui

@@ -7,13 +7,15 @@ no custom HTML or CSS.
 
 ## Prerequisites
 
-| Requirement | Version |
-|---|---|
-| OpenShift cluster | 4.14+ |
-| ACM hub (optional) | 2.9+ |
-| `oc` CLI | 4.14+ |
-| Node.js | 22+ |
-| Podman or Docker | latest |
+
+| Requirement        | Version |
+| ------------------ | ------- |
+| OpenShift cluster  | 4.14+   |
+| ACM hub (optional) | 2.9+    |
+| `oc` CLI           | 4.14+   |
+| Node.js            | 22+     |
+| Podman or Docker   | latest  |
+
 
 The Tenant CRD must be installed on the cluster before the form can create
 resources:
@@ -57,8 +59,8 @@ npm run build-dev
 Build and push the plugin image:
 
 ```bash
-podman build -t quay.io/<your-org>/tenant-form-acm-gui:latest .
-podman push quay.io/<your-org>/tenant-form-acm-gui:latest
+podman build -t quay.io/nday/tenant-form-acm-gui:latest .
+podman push quay.io/nday/tenant-form-acm-gui:latest
 ```
 
 ## Cluster Deployment
@@ -91,7 +93,7 @@ spec:
     spec:
       containers:
         - name: tenant-form-acm-gui
-          image: quay.io/<your-org>/tenant-form-acm-gui:latest
+          image: quay.io/nday/tenant-form-acm-gui:latest
           ports:
             - containerPort: 8080
               protocol: TCP

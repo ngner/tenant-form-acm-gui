@@ -2,7 +2,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE="${IMAGE:-quay.io/nday/tenant-form-acm-gui:latest}"
+
+if [ -z "${IMAGE:-}" ]; then
+  read -rp "Quay.io organisation (e.g. nday): " QUAY_ORG
+  if [ -z "${QUAY_ORG}" ]; then
+    echo "ERROR: Organisation cannot be empty."
+    exit 1
+  fi
+  IMAGE="quay.io/${QUAY_ORG}/tenant-form-acm-gui:latest"
+fi
 
 echo "==> Deploying tenant-form-acm-gui plugin"
 echo "    Image: ${IMAGE}"
@@ -28,12 +36,8 @@ oc apply -f "${SCRIPT_DIR}/00-namespace.yaml"
 
 # 3. Deploy the plugin server (patch image if overridden)
 echo "==> [3/5] Deploying plugin server..."
-if [ "${IMAGE}" != "quay.io/nday/tenant-form-acm-gui:latest" ]; then
-  sed "s|quay.io/nday/tenant-form-acm-gui:latest|${IMAGE}|g" \
-    "${SCRIPT_DIR}/02-deployment.yaml" | oc apply -f -
-else
-  oc apply -f "${SCRIPT_DIR}/02-deployment.yaml"
-fi
+sed "s|quay.io/nday/tenant-form-acm-gui:latest|${IMAGE}|g" \
+  "${SCRIPT_DIR}/02-deployment.yaml" | oc apply -f -
 
 # 4. Register the ConsolePlugin
 echo "==> [4/5] Registering ConsolePlugin..."

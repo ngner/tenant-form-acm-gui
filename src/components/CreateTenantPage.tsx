@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useHistory } from 'react-router-dom';
 import {
-  Page,
   PageSection,
   Title,
   Form,
@@ -18,10 +17,14 @@ import {
   GridItem,
   InputGroup,
   InputGroupItem,
+  Content,
 } from '@patternfly/react-core';
 import { PlusCircleIcon, MinusCircleIcon } from '@patternfly/react-icons';
 import { k8sCreate } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
+
+const DEFAULT_NAMESPACE = 'tenancies';
+const DEFAULT_MY_ASN = '64500';
 
 interface MetallbForm {
   myASN: string;
@@ -52,7 +55,7 @@ const defaults: TenantSpec = {
   limitRange: { maxCpu: '32', maxMemory: '128Gi', maxStorage: '1Ti' },
   network: {
     udnSubnet: '',
-    metallb: { myASN: '64500', peerASN: '', peerAddress: '', vrf: '', addresses: [] },
+    metallb: { myASN: DEFAULT_MY_ASN, peerASN: '', peerAddress: '', vrf: '', addresses: [] },
   },
 };
 
@@ -65,15 +68,31 @@ const helpPopover = (content: string, label: string): React.ReactElement => (
 const fieldValid = (submitted: boolean, value: string) =>
   submitted && !value.trim() ? 'error' as const : 'default' as const;
 
+const sectionDescription = (text: string): React.ReactElement => (
+  <Content component="p" style={{ marginBottom: '0.5rem', color: 'var(--pf-t--global--text--color--subtle)' }}>
+    {text}
+  </Content>
+);
+
 const CreateTenantPage: React.FC = () => {
   const history = useHistory();
   const [name, setName] = React.useState('');
-  const [namespace, setNamespace] = React.useState('');
+  const [namespace, setNamespace] = React.useState(DEFAULT_NAMESPACE);
   const [spec, setSpec] = React.useState<TenantSpec>({ ...defaults });
   const [networkExpanded, setNetworkExpanded] = React.useState(false);
+  const [advancedExpanded, setAdvancedExpanded] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+
+  const derivedAdminGroup = name.trim() ? `${name.trim()}-tenant-admin` : '';
+  const derivedUserGroup = name.trim() ? `${name.trim()}-tenant-user` : '';
+  const derivedVrf = name.trim() ? `${name.trim()}-vrf` : '';
+
+  const effectiveAdminGroup = spec.adminGroup.trim() || derivedAdminGroup;
+  const effectiveUserGroup = spec.operatorGroup.trim() || derivedUserGroup;
+  const effectiveVrf = spec.network.metallb.vrf.trim() || derivedVrf;
+  const effectiveNamespace = namespace.trim() || DEFAULT_NAMESPACE;
 
   const updateSpec = <K extends keyof TenantSpec>(key: K, val: TenantSpec[K]) =>
     setSpec((prev) => ({ ...prev, [key]: val }));
@@ -113,10 +132,9 @@ const CreateTenantPage: React.FC = () => {
 
   const validate = (): string[] => {
     const errs: string[] = [];
-    if (!name.trim()) errs.push('Resource name is required.');
-    if (!namespace.trim()) errs.push('Namespace is required.');
-    if (!spec.adminGroup.trim()) errs.push('Admin Group is required.');
-    if (!spec.operatorGroup.trim()) errs.push('Operator Group is required.');
+    if (!name.trim()) errs.push('Tenant name is required.');
+    if (!effectiveAdminGroup) errs.push('Admin Group is required.');
+    if (!effectiveUserGroup) errs.push('User Group is required.');
     return errs;
   };
 
@@ -125,10 +143,10 @@ const CreateTenantPage: React.FC = () => {
     const tenant: any = {
       apiVersion: `${TenantModel.apiGroup}/${TenantModel.apiVersion}`,
       kind: TenantModel.kind,
-      metadata: { name: name.trim(), namespace: namespace.trim() },
+      metadata: { name: name.trim(), namespace: effectiveNamespace },
       spec: {
-        adminGroup: spec.adminGroup.trim(),
-        operatorGroup: spec.operatorGroup.trim(),
+        adminGroup: effectiveAdminGroup,
+        operatorGroup: effectiveUserGroup,
         resourceQuota: { ...spec.resourceQuota },
         vmQuota: { ...spec.vmQuota },
         limitRange: { ...spec.limitRange },
@@ -142,14 +160,14 @@ const CreateTenantPage: React.FC = () => {
       network.udnSubnet = spec.network.udnSubnet.trim();
     }
     const mb = spec.network.metallb;
-    const hasMetallb = mb.peerASN || mb.peerAddress || mb.vrf || mb.addresses.some((a) => a.trim());
+    const hasMetallb = mb.peerASN || mb.peerAddress || effectiveVrf || mb.addresses.some((a) => a.trim());
     if (hasMetallb) {
       const metallb: Record<string, unknown> = {
-        myASN: parseInt(mb.myASN, 10) || 64500,
+        myASN: parseInt(mb.myASN, 10) || parseInt(DEFAULT_MY_ASN, 10),
       };
       if (mb.peerASN) metallb.peerASN = parseInt(mb.peerASN, 10);
       if (mb.peerAddress.trim()) metallb.peerAddress = mb.peerAddress.trim();
-      if (mb.vrf.trim()) metallb.vrf = mb.vrf.trim();
+      metallb.vrf = effectiveVrf;
       const filteredAddrs = mb.addresses.map((a) => a.trim()).filter(Boolean);
       if (filteredAddrs.length) metallb.addresses = filteredAddrs;
       network.metallb = metallb;
@@ -171,7 +189,7 @@ const CreateTenantPage: React.FC = () => {
     try {
       await k8sCreate({ model: TenantModel, data: buildResource() });
       history.push(
-        `/k8s/ns/${namespace.trim()}/${TenantModel.apiGroup}~${TenantModel.apiVersion}~${TenantModel.kind}/${name.trim()}`,
+        `/k8s/ns/${effectiveNamespace}/${TenantModel.apiGroup}~${TenantModel.apiVersion}~${TenantModel.kind}/${name.trim()}`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -181,7 +199,7 @@ const CreateTenantPage: React.FC = () => {
   };
 
   return (
-    <Page>
+    <>
       <PageSection variant="default">
         <Title headingLevel="h1">Create Tenant</Title>
       </PageSection>
@@ -193,11 +211,11 @@ const CreateTenantPage: React.FC = () => {
         )}
 
         <Form onSubmit={handleSubmit}>
-          {/* ── Metadata ── */}
-          <FormSection title="Metadata">
+          {/* ── Tenant Details ── */}
+          <FormSection title="Tenant Details">
             <Grid hasGutter>
               <GridItem span={6}>
-                <FormGroup label="Name" isRequired fieldId="tenant-name">
+                <FormGroup label="Tenant Name" isRequired fieldId="tenant-name">
                   <TextInput
                     id="tenant-name"
                     value={name}
@@ -208,28 +226,11 @@ const CreateTenantPage: React.FC = () => {
                 </FormGroup>
               </GridItem>
               <GridItem span={6}>
-                <FormGroup label="Namespace" isRequired fieldId="tenant-namespace">
-                  <TextInput
-                    id="tenant-namespace"
-                    value={namespace}
-                    onChange={(_e, v) => setNamespace(v)}
-                    validated={fieldValid(submitted, namespace)}
-                    isRequired
-                  />
-                </FormGroup>
-              </GridItem>
-            </Grid>
-          </FormSection>
-
-          {/* ── Identity & RBAC ── */}
-          <FormSection title="Identity &amp; RBAC">
-            <Grid hasGutter>
-              <GridItem span={6}>
                 <FormGroup
                   label="Display Name"
                   fieldId="display-name"
                   labelHelp={helpPopover(
-                    'Human-readable tenant name shown in the console.',
+                    'A friendly name for this tenant shown in the console.',
                     'Display Name',
                   )}
                 >
@@ -256,59 +257,21 @@ const CreateTenantPage: React.FC = () => {
                   />
                 </FormGroup>
               </GridItem>
-              <GridItem span={6}>
-                <FormGroup
-                  label="Admin Group"
-                  isRequired
-                  fieldId="admin-group"
-                  labelHelp={helpPopover(
-                    'IdP group granted admin in the tenant namespace, kubevirt.io:admin on VMs, and acm-vm-fleet:admin on the hub console.',
-                    'Admin Group',
-                  )}
-                >
-                  <TextInput
-                    id="admin-group"
-                    value={spec.adminGroup}
-                    onChange={(_e, v) => updateSpec('adminGroup', v)}
-                    validated={fieldValid(submitted, spec.adminGroup)}
-                    isRequired
-                  />
-                </FormGroup>
-              </GridItem>
-              <GridItem span={6}>
-                <FormGroup
-                  label="Operator Group"
-                  isRequired
-                  fieldId="operator-group"
-                  labelHelp={helpPopover(
-                    'IdP group granted edit in the tenant namespace, kubevirt.io:edit on VMs, and acm-vm-fleet:view on the hub console.',
-                    'Operator Group',
-                  )}
-                >
-                  <TextInput
-                    id="operator-group"
-                    value={spec.operatorGroup}
-                    onChange={(_e, v) => updateSpec('operatorGroup', v)}
-                    validated={fieldValid(submitted, spec.operatorGroup)}
-                    isRequired
-                  />
-                </FormGroup>
-              </GridItem>
             </Grid>
           </FormSection>
 
-          {/* ── Resource Quota ── */}
-          <FormSection
-            title="Resource Quota"
-            titleElement="h2"
-          >
+          {/* ── Tenant Resource Quotas ── */}
+          <FormSection title="Tenant Resource Quotas" titleElement="h2">
+            {sectionDescription(
+              'Set the total resource budget for this tenant. These limits cover everything in the tenant \u2014 VMs, services, migration pods, and all other workloads.',
+            )}
             <Grid hasGutter>
               <GridItem span={6}>
                 <FormGroup
                   label="CPU"
                   fieldId="rq-cpu"
                   labelHelp={helpPopover(
-                    'Total CPU requests allowed for all pods.',
+                    'Total CPU cores available across all workloads in this tenant.',
                     'CPU',
                   )}
                 >
@@ -324,7 +287,7 @@ const CreateTenantPage: React.FC = () => {
                   label="Memory"
                   fieldId="rq-memory"
                   labelHelp={helpPopover(
-                    'Total memory requests allowed for all pods.',
+                    'Total memory available across all workloads in this tenant.',
                     'Memory',
                   )}
                 >
@@ -340,7 +303,7 @@ const CreateTenantPage: React.FC = () => {
                   label="Pods"
                   fieldId="rq-pods"
                   labelHelp={helpPopover(
-                    'Maximum pod count in the namespace.',
+                    'Maximum number of running workloads in this tenant.',
                     'Pods',
                   )}
                 >
@@ -356,7 +319,7 @@ const CreateTenantPage: React.FC = () => {
                   label="Storage"
                   fieldId="rq-storage"
                   labelHelp={helpPopover(
-                    'Total PVC storage requests allowed.',
+                    'Total persistent storage available in this tenant.',
                     'Storage',
                   )}
                 >
@@ -370,18 +333,18 @@ const CreateTenantPage: React.FC = () => {
             </Grid>
           </FormSection>
 
-          {/* ── VM Quota (AAQ) ── */}
-          <FormSection
-            title="VM Quota (AAQ)"
-            titleElement="h2"
-          >
+          {/* ── Virtual Machine Quota ── */}
+          <FormSection title="Virtual Machine Quota" titleElement="h2">
+            {sectionDescription(
+              'Set the combined resource budget for all virtual machines in this tenant. This is a subset of the tenant resource quota above \u2014 it limits how much of the total budget VMs can consume, reserving the remainder for services like migration pods and other workloads.',
+            )}
             <Grid hasGutter>
               <GridItem span={6}>
                 <FormGroup
                   label="CPU"
                   fieldId="vm-cpu"
                   labelHelp={helpPopover(
-                    'Aggregate vCPU across all VMIs.',
+                    'Total CPU cores that can be allocated across all virtual machines.',
                     'VM CPU',
                   )}
                 >
@@ -397,7 +360,7 @@ const CreateTenantPage: React.FC = () => {
                   label="Memory"
                   fieldId="vm-memory"
                   labelHelp={helpPopover(
-                    'Aggregate memory across all VMIs.',
+                    'Total memory that can be allocated across all virtual machines.',
                     'VM Memory',
                   )}
                 >
@@ -411,19 +374,19 @@ const CreateTenantPage: React.FC = () => {
             </Grid>
           </FormSection>
 
-          {/* ── Limit Range ── */}
-          <FormSection
-            title="Limit Range"
-            titleElement="h2"
-          >
+          {/* ── Maximum Virtual Machine Size ── */}
+          <FormSection title="Maximum Virtual Machine Size" titleElement="h2">
+            {sectionDescription(
+              'Set the largest virtual machine that can be created in this tenant. No single VM may exceed these limits.',
+            )}
             <Grid hasGutter>
               <GridItem span={4}>
                 <FormGroup
-                  label="Max CPU"
+                  label="CPU Limit"
                   fieldId="lr-cpu"
                   labelHelp={helpPopover(
-                    'Maximum CPU any single container may request.',
-                    'Max CPU',
+                    'Maximum CPU cores for any single virtual machine.',
+                    'CPU Limit',
                   )}
                 >
                   <TextInput
@@ -435,11 +398,11 @@ const CreateTenantPage: React.FC = () => {
               </GridItem>
               <GridItem span={4}>
                 <FormGroup
-                  label="Max Memory"
+                  label="Memory Limit"
                   fieldId="lr-memory"
                   labelHelp={helpPopover(
-                    'Maximum memory any single container may request.',
-                    'Max Memory',
+                    'Maximum memory for any single virtual machine.',
+                    'Memory Limit',
                   )}
                 >
                   <TextInput
@@ -451,11 +414,11 @@ const CreateTenantPage: React.FC = () => {
               </GridItem>
               <GridItem span={4}>
                 <FormGroup
-                  label="Max Storage"
+                  label="Storage Limit"
                   fieldId="lr-storage"
                   labelHelp={helpPopover(
-                    'Maximum size of any single PVC.',
-                    'Max Storage',
+                    'Maximum disk size for any single virtual machine.',
+                    'Storage Limit',
                   )}
                 >
                   <TextInput
@@ -468,19 +431,22 @@ const CreateTenantPage: React.FC = () => {
             </Grid>
           </FormSection>
 
-          {/* ── Advanced Networking ── */}
+          {/* ── Networking ── */}
           <ExpandableSection
-            toggleText={networkExpanded ? 'Advanced Networking' : 'Advanced Networking'}
+            toggleText="Networking"
             isExpanded={networkExpanded}
             onToggle={(_e, expanded) => setNetworkExpanded(expanded)}
           >
-            <FormSection title="User Defined Network">
+            <FormSection title="Isolated Private Network">
+              {sectionDescription(
+                'CIDR block for this tenant\u2019s isolated virtual network. Each tenant gets its own network \u2014 address ranges may overlap between tenants.',
+              )}
               <FormGroup
-                label="UDN Subnet"
+                label="Network CIDR"
                 fieldId="udn-subnet"
                 labelHelp={helpPopover(
-                  'CIDR for the tenant\'s primary UDN. May overlap other tenants — each UDN is a fully isolated logical network.',
-                  'UDN Subnet',
+                  'The private IP address range for this tenant\u2019s virtual network, similar to an AWS VPC CIDR block.',
+                  'Network CIDR',
                 )}
               >
                 <TextInput
@@ -492,48 +458,17 @@ const CreateTenantPage: React.FC = () => {
               </FormGroup>
             </FormSection>
 
-            <FormSection title="MetalLB BGP">
+            <FormSection title="Service Provider BGP Peering">
+              {sectionDescription(
+                'Configure BGP peering with your upstream network provider for external connectivity. This enables public IP assignment for ingress and egress traffic.',
+              )}
               <Grid hasGutter>
-                <GridItem span={6}>
-                  <FormGroup
-                    label="My ASN"
-                    fieldId="my-asn"
-                    labelHelp={helpPopover(
-                      'Cluster-side ASN (shared across tenants by default).',
-                      'My ASN',
-                    )}
-                  >
-                    <TextInput
-                      id="my-asn"
-                      type="number"
-                      value={spec.network.metallb.myASN}
-                      onChange={(_e, v) => updateMetallb('myASN', v)}
-                    />
-                  </FormGroup>
-                </GridItem>
-                <GridItem span={6}>
-                  <FormGroup
-                    label="Peer ASN"
-                    fieldId="peer-asn"
-                    labelHelp={helpPopover(
-                      'ASN of the upstream BGP router for this tenant.',
-                      'Peer ASN',
-                    )}
-                  >
-                    <TextInput
-                      id="peer-asn"
-                      type="number"
-                      value={spec.network.metallb.peerASN}
-                      onChange={(_e, v) => updateMetallb('peerASN', v)}
-                    />
-                  </FormGroup>
-                </GridItem>
                 <GridItem span={6}>
                   <FormGroup
                     label="Peer Address"
                     fieldId="peer-address"
                     labelHelp={helpPopover(
-                      'IP address of the upstream BGP peer.',
+                      'IP address of the upstream BGP router provided by your network team.',
                       'Peer Address',
                     )}
                   >
@@ -545,30 +480,14 @@ const CreateTenantPage: React.FC = () => {
                     />
                   </FormGroup>
                 </GridItem>
-                <GridItem span={6}>
-                  <FormGroup
-                    label="VRF"
-                    fieldId="vrf"
-                    labelHelp={helpPopover(
-                      'Dedicated VRF name (e.g. starwars-vrf).',
-                      'VRF',
-                    )}
-                  >
-                    <TextInput
-                      id="vrf"
-                      value={spec.network.metallb.vrf}
-                      onChange={(_e, v) => updateMetallb('vrf', v)}
-                    />
-                  </FormGroup>
-                </GridItem>
               </Grid>
 
               <FormGroup
-                label="Addresses"
+                label="Public IP Ranges"
                 fieldId="addresses"
                 labelHelp={helpPopover(
-                  'External IP ranges assigned to this tenant\'s services.',
-                  'Addresses',
+                  'External IP ranges assigned to this tenant for load balancer and ingress services, similar to AWS Elastic IPs.',
+                  'Public IP Ranges',
                 )}
               >
                 {spec.network.metallb.addresses.map((addr, idx) => (
@@ -593,9 +512,142 @@ const CreateTenantPage: React.FC = () => {
                   </InputGroup>
                 ))}
                 <Button variant="link" icon={<PlusCircleIcon />} onClick={addAddress}>
-                  Add address range
+                  Add IP range
                 </Button>
               </FormGroup>
+            </FormSection>
+          </ExpandableSection>
+
+          {/* ── Advanced Settings ── */}
+          <ExpandableSection
+            toggleText="Advanced Settings"
+            isExpanded={advancedExpanded}
+            onToggle={(_e, expanded) => setAdvancedExpanded(expanded)}
+          >
+            <FormSection title="Cluster Set Management">
+              {sectionDescription(
+                'The namespace and its ClusterSetBinding control which managed clusters are visible to this tenant.',
+              )}
+              <Grid hasGutter>
+                <GridItem span={6}>
+                  <FormGroup
+                    label="Cluster Groups Namespace"
+                    fieldId="tenant-namespace"
+                    labelHelp={helpPopover(
+                      'Namespace where tenant resources are created. The associated ManagedClusterSetBinding determines which clusters this tenant can access.',
+                      'Cluster Groups Namespace',
+                    )}
+                  >
+                    <TextInput
+                      id="tenant-namespace"
+                      value={namespace}
+                      placeholder={DEFAULT_NAMESPACE}
+                      onChange={(_e, v) => setNamespace(v)}
+                    />
+                  </FormGroup>
+                </GridItem>
+              </Grid>
+            </FormSection>
+
+            <FormSection title="Access Groups">
+              {sectionDescription(
+                'Identity provider groups used for role-based access. By default these are derived from the tenant name.',
+              )}
+              <Grid hasGutter>
+                <GridItem span={6}>
+                  <FormGroup
+                    label="Admin Group"
+                    fieldId="admin-group"
+                    labelHelp={helpPopover(
+                      'IdP group granted full admin access to this tenant\u2019s resources, VMs, and console views.',
+                      'Admin Group',
+                    )}
+                  >
+                    <TextInput
+                      id="admin-group"
+                      value={spec.adminGroup}
+                      placeholder={derivedAdminGroup || 'e.g. mytenant-tenant-admin'}
+                      onChange={(_e, v) => updateSpec('adminGroup', v)}
+                    />
+                  </FormGroup>
+                </GridItem>
+                <GridItem span={6}>
+                  <FormGroup
+                    label="User Group"
+                    fieldId="operator-group"
+                    labelHelp={helpPopover(
+                      'IdP group granted day-to-day user access to this tenant\u2019s resources and VMs.',
+                      'User Group',
+                    )}
+                  >
+                    <TextInput
+                      id="operator-group"
+                      value={spec.operatorGroup}
+                      placeholder={derivedUserGroup || 'e.g. mytenant-tenant-user'}
+                      onChange={(_e, v) => updateSpec('operatorGroup', v)}
+                    />
+                  </FormGroup>
+                </GridItem>
+              </Grid>
+            </FormSection>
+
+            <FormSection title="BGP Advanced">
+              {sectionDescription(
+                'Override BGP peering defaults. These values are shared across tenants and rarely need changing.',
+              )}
+              <Grid hasGutter>
+                <GridItem span={4}>
+                  <FormGroup
+                    label="VRF"
+                    fieldId="vrf"
+                    labelHelp={helpPopover(
+                      'Virtual routing and forwarding instance for network isolation. Defaults to {tenant-name}-vrf.',
+                      'VRF',
+                    )}
+                  >
+                    <TextInput
+                      id="vrf"
+                      value={spec.network.metallb.vrf}
+                      placeholder={derivedVrf || 'e.g. mytenant-vrf'}
+                      onChange={(_e, v) => updateMetallb('vrf', v)}
+                    />
+                  </FormGroup>
+                </GridItem>
+                <GridItem span={4}>
+                  <FormGroup
+                    label="Cluster ASN"
+                    fieldId="my-asn"
+                    labelHelp={helpPopover(
+                      'Cluster-side BGP autonomous system number. Shared across all tenants by default.',
+                      'Cluster ASN',
+                    )}
+                  >
+                    <TextInput
+                      id="my-asn"
+                      type="number"
+                      value={spec.network.metallb.myASN}
+                      onChange={(_e, v) => updateMetallb('myASN', v)}
+                    />
+                  </FormGroup>
+                </GridItem>
+                <GridItem span={4}>
+                  <FormGroup
+                    label="Peer ASN"
+                    fieldId="peer-asn"
+                    labelHelp={helpPopover(
+                      'BGP autonomous system number of the upstream network provider router.',
+                      'Peer ASN',
+                    )}
+                  >
+                    <TextInput
+                      id="peer-asn"
+                      type="number"
+                      value={spec.network.metallb.peerASN}
+                      onChange={(_e, v) => updateMetallb('peerASN', v)}
+                    />
+                  </FormGroup>
+                </GridItem>
+              </Grid>
             </FormSection>
           </ExpandableSection>
 
@@ -615,7 +667,7 @@ const CreateTenantPage: React.FC = () => {
           </ActionGroup>
         </Form>
       </PageSection>
-    </Page>
+    </>
   );
 };
 

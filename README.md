@@ -42,6 +42,7 @@ Several fields are auto-derived from the **Tenant Name** as the user types:
 | Namespace | `tenancies` | Advanced Settings → Cluster Set Management |
 | Admin Group | `{name}-tenant-admin` | Advanced Settings → Access Groups |
 | User Group | `{name}-tenant-user` | Advanced Settings → Access Groups |
+| Viewer Group | `{name}-tenant-viewer` | Advanced Settings → Access Groups |
 | VRF | `{name}-vrf` | Advanced Settings → BGP Advanced |
 | Cluster ASN | `64500` | Advanced Settings → BGP Advanced |
 

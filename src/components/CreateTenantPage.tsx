@@ -38,7 +38,8 @@ interface TenantSpec {
   displayName: string;
   owner: string;
   adminGroup: string;
-  operatorGroup: string;
+  userGroup: string;
+  viewerGroup: string;
   resourceQuota: { cpu: string; memory: string; pods: string; storage: string };
   vmQuota: { cpu: string; memory: string };
   limitRange: { maxCpu: string; maxMemory: string; maxStorage: string };
@@ -49,7 +50,8 @@ const defaults: TenantSpec = {
   displayName: '',
   owner: '',
   adminGroup: '',
-  operatorGroup: '',
+  userGroup: '',
+  viewerGroup: '',
   resourceQuota: { cpu: '86', memory: '332Gi', pods: '15', storage: '2000Gi' },
   vmQuota: { cpu: '80', memory: '320Gi' },
   limitRange: { maxCpu: '32', maxMemory: '128Gi', maxStorage: '1Ti' },
@@ -87,10 +89,12 @@ const CreateTenantPage: React.FC = () => {
 
   const derivedAdminGroup = name.trim() ? `${name.trim()}-tenant-admin` : '';
   const derivedUserGroup = name.trim() ? `${name.trim()}-tenant-user` : '';
+  const derivedViewerGroup = name.trim() ? `${name.trim()}-tenant-viewer` : '';
   const derivedVrf = name.trim() ? `${name.trim()}-vrf` : '';
 
   const effectiveAdminGroup = spec.adminGroup.trim() || derivedAdminGroup;
-  const effectiveUserGroup = spec.operatorGroup.trim() || derivedUserGroup;
+  const effectiveUserGroup = spec.userGroup.trim() || derivedUserGroup;
+  const effectiveViewerGroup = spec.viewerGroup.trim() || derivedViewerGroup;
   const effectiveVrf = spec.network.metallb.vrf.trim() || derivedVrf;
   const effectiveNamespace = namespace.trim() || DEFAULT_NAMESPACE;
 
@@ -146,7 +150,8 @@ const CreateTenantPage: React.FC = () => {
       metadata: { name: name.trim(), namespace: effectiveNamespace },
       spec: {
         adminGroup: effectiveAdminGroup,
-        operatorGroup: effectiveUserGroup,
+        userGroup: effectiveUserGroup,
+        viewerGroup: effectiveViewerGroup,
         resourceQuota: { ...spec.resourceQuota },
         vmQuota: { ...spec.vmQuota },
         limitRange: { ...spec.limitRange },
@@ -574,17 +579,34 @@ const CreateTenantPage: React.FC = () => {
                 <GridItem span={6}>
                   <FormGroup
                     label="User Group"
-                    fieldId="operator-group"
+                    fieldId="user-group"
                     labelHelp={helpPopover(
                       'IdP group granted day-to-day user access to this tenant\u2019s resources and VMs.',
                       'User Group',
                     )}
                   >
                     <TextInput
-                      id="operator-group"
-                      value={spec.operatorGroup}
+                      id="user-group"
+                      value={spec.userGroup}
                       placeholder={derivedUserGroup || 'e.g. mytenant-tenant-user'}
-                      onChange={(_e, v) => updateSpec('operatorGroup', v)}
+                      onChange={(_e, v) => updateSpec('userGroup', v)}
+                    />
+                  </FormGroup>
+                </GridItem>
+                <GridItem span={6}>
+                  <FormGroup
+                    label="Viewer Group"
+                    fieldId="viewer-group"
+                    labelHelp={helpPopover(
+                      'IdP group granted read-only view access to this tenant\u2019s resources and VMs.',
+                      'Viewer Group',
+                    )}
+                  >
+                    <TextInput
+                      id="viewer-group"
+                      value={spec.viewerGroup}
+                      placeholder={derivedViewerGroup || 'e.g. mytenant-tenant-viewer'}
+                      onChange={(_e, v) => updateSpec('viewerGroup', v)}
                     />
                   </FormGroup>
                 </GridItem>

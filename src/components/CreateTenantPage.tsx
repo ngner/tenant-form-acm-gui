@@ -34,6 +34,17 @@ interface MetallbForm {
   addresses: string[];
 }
 
+interface IdentityForm {
+  enabled: boolean;
+  provider: 'keycloak' | 'oidc';
+  clientSecret: string;
+  consoleLoginName: string;
+  oidcIssuer: string;
+  keycloakNamespace: string;
+  keycloakInstance: string;
+  seedUsers: boolean;
+}
+
 interface TenantSpec {
   displayName: string;
   owner: string;
@@ -44,6 +55,7 @@ interface TenantSpec {
   vmQuota: { cpu: string; memory: string };
   limitRange: { maxCpu: string; maxMemory: string; maxStorage: string };
   network: { udnSubnet: string; metallb: MetallbForm };
+  identity: IdentityForm;
 }
 
 const defaults: TenantSpec = {
@@ -58,6 +70,16 @@ const defaults: TenantSpec = {
   network: {
     udnSubnet: '',
     metallb: { myASN: DEFAULT_MY_ASN, peerASN: '', peerAddress: '', vrf: '', addresses: [] },
+  },
+  identity: {
+    enabled: false,
+    provider: 'keycloak',
+    clientSecret: '',
+    consoleLoginName: '',
+    oidcIssuer: '',
+    keycloakNamespace: 'keycloak-system',
+    keycloakInstance: 'main',
+    seedUsers: true,
   },
 };
 
@@ -82,6 +104,7 @@ const CreateTenantPage: React.FC = () => {
   const [namespace, setNamespace] = React.useState(DEFAULT_NAMESPACE);
   const [spec, setSpec] = React.useState<TenantSpec>({ ...defaults });
   const [networkExpanded, setNetworkExpanded] = React.useState(false);
+  const [identityExpanded, setIdentityExpanded] = React.useState(false);
   const [advancedExpanded, setAdvancedExpanded] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -134,11 +157,22 @@ const CreateTenantPage: React.FC = () => {
       spec.network.metallb.addresses.map((a, i) => (i === idx ? val : a)),
     );
 
+  const updateIdentity = (key: keyof IdentityForm, val: string | boolean) =>
+    setSpec((prev) => ({ ...prev, identity: { ...prev.identity, [key]: val } }));
+
   const validate = (): string[] => {
     const errs: string[] = [];
     if (!name.trim()) errs.push('Tenant name is required.');
     if (!effectiveAdminGroup) errs.push('Admin Group is required.');
     if (!effectiveUserGroup) errs.push('User Group is required.');
+    if (spec.identity.enabled) {
+      if (!spec.identity.clientSecret.trim()) {
+        errs.push('Client secret is required when console SSO is enabled.');
+      }
+      if (spec.identity.provider === 'oidc' && !spec.identity.oidcIssuer.trim()) {
+        errs.push('Issuer URL is required for external OIDC.');
+      }
+    }
     return errs;
   };
 
@@ -178,7 +212,59 @@ const CreateTenantPage: React.FC = () => {
       network.metallb = metallb;
     }
     if (Object.keys(network).length) tenant.spec.network = network;
+
+    if (spec.identity.enabled) {
+      const tenantName = name.trim();
+      const idpName = spec.identity.consoleLoginName.trim() || `${tenantName}-idp`;
+      tenant.spec.identity = {
+        enabled: true,
+        provider: spec.identity.provider,
+        consoleLoginName: idpName,
+        clientId: `openshift-${tenantName}`,
+        clientSecretRef: {
+          name: `${tenantName}-client-secret`,
+          namespace: 'openshift-config',
+        },
+      };
+      if (spec.identity.provider === 'keycloak') {
+        tenant.spec.identity.keycloak = {
+          namespace: spec.identity.keycloakNamespace.trim() || 'keycloak-system',
+          instanceName: spec.identity.keycloakInstance.trim() || 'main',
+          realm: tenantName,
+          seedUsers: spec.identity.seedUsers,
+        };
+      } else {
+        tenant.spec.identity.oidc = {
+          issuer: spec.identity.oidcIssuer.trim(),
+        };
+      }
+    }
     return tenant;
+  };
+
+  const createClientSecret = async (tenantName: string, secret: string) => {
+    await k8sCreate({
+      model: {
+        apiGroup: '',
+        apiVersion: 'v1',
+        kind: 'Secret',
+        plural: 'secrets',
+        namespaced: true,
+        abbr: 'SEC',
+        label: 'Secret',
+        labelPlural: 'Secrets',
+      },
+      data: {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: {
+          name: `${tenantName}-client-secret`,
+          namespace: 'openshift-config',
+        },
+        type: 'Opaque',
+        stringData: { clientSecret: secret },
+      },
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -192,6 +278,10 @@ const CreateTenantPage: React.FC = () => {
     }
     setLoading(true);
     try {
+      const tenantName = name.trim();
+      if (spec.identity.enabled) {
+        await createClientSecret(tenantName, spec.identity.clientSecret.trim());
+      }
       await k8sCreate({ model: TenantModel, data: buildResource() });
       history.push(
         `/k8s/ns/${effectiveNamespace}/${TenantModel.apiGroup}~${TenantModel.apiVersion}~${TenantModel.kind}/${name.trim()}`,
@@ -520,6 +610,121 @@ const CreateTenantPage: React.FC = () => {
                   Add IP range
                 </Button>
               </FormGroup>
+            </FormSection>
+          </ExpandableSection>
+
+          {/* ── Console login (optional) ── */}
+          <ExpandableSection
+            toggleText="Console login (optional)"
+            isExpanded={identityExpanded}
+            onToggle={(_e, expanded) => setIdentityExpanded(expanded)}
+          >
+            <FormSection title="OpenShift OAuth identity provider">
+              {sectionDescription(
+                'Optionally register a console login IdP for this tenant. Keycloak provisioning is automatic in demo mode; external OIDC (Azure, etc.) registers the OpenShift side and shows setup notes in tenant status.',
+              )}
+              <FormGroup fieldId="identity-enabled">
+                <input
+                  id="identity-enabled"
+                  type="checkbox"
+                  checked={spec.identity.enabled}
+                  onChange={(e) => updateIdentity('enabled', e.target.checked)}
+                />
+                {' '}
+                <label htmlFor="identity-enabled">Enable console SSO for this tenant</label>
+              </FormGroup>
+              {spec.identity.enabled && (
+                <Grid hasGutter>
+                  <GridItem span={6}>
+                    <FormGroup label="Provider" fieldId="identity-provider">
+                      <select
+                        id="identity-provider"
+                        value={spec.identity.provider}
+                        onChange={(e) =>
+                          updateIdentity('provider', e.target.value as 'keycloak' | 'oidc')
+                        }
+                      >
+                        <option value="keycloak">Keycloak (platform-managed realm)</option>
+                        <option value="oidc">External OIDC (Azure, Okta, …)</option>
+                      </select>
+                    </FormGroup>
+                  </GridItem>
+                  <GridItem span={6}>
+                    <FormGroup label="Client secret" fieldId="client-secret" isRequired>
+                      <TextInput
+                        id="client-secret"
+                        type="password"
+                        value={spec.identity.clientSecret}
+                        onChange={(_e, v) => updateIdentity('clientSecret', v)}
+                        validated={fieldValid(submitted, spec.identity.clientSecret)}
+                        isRequired
+                      />
+                    </FormGroup>
+                  </GridItem>
+                  <GridItem span={6}>
+                    <FormGroup
+                      label="Console IdP name"
+                      fieldId="console-idp-name"
+                      labelHelp={helpPopover('OpenShift OAuth identity provider name.', 'Console IdP name')}
+                    >
+                      <TextInput
+                        id="console-idp-name"
+                        placeholder={name.trim() ? `${name.trim()}-idp` : 'tenant-idp'}
+                        value={spec.identity.consoleLoginName}
+                        onChange={(_e, v) => updateIdentity('consoleLoginName', v)}
+                      />
+                    </FormGroup>
+                  </GridItem>
+                  {spec.identity.provider === 'keycloak' && (
+                    <>
+                      <GridItem span={6}>
+                        <FormGroup label="Keycloak namespace" fieldId="kc-ns">
+                          <TextInput
+                            id="kc-ns"
+                            value={spec.identity.keycloakNamespace}
+                            onChange={(_e, v) => updateIdentity('keycloakNamespace', v)}
+                          />
+                        </FormGroup>
+                      </GridItem>
+                      <GridItem span={6}>
+                        <FormGroup label="Keycloak instance" fieldId="kc-instance">
+                          <TextInput
+                            id="kc-instance"
+                            value={spec.identity.keycloakInstance}
+                            onChange={(_e, v) => updateIdentity('keycloakInstance', v)}
+                          />
+                        </FormGroup>
+                      </GridItem>
+                      <GridItem span={12}>
+                        <FormGroup fieldId="seed-users">
+                          <input
+                            id="seed-users"
+                            type="checkbox"
+                            checked={spec.identity.seedUsers}
+                            onChange={(e) => updateIdentity('seedUsers', e.target.checked)}
+                          />
+                          {' '}
+                          <label htmlFor="seed-users">Create demo seed users (admin@, user@, viewer@)</label>
+                        </FormGroup>
+                      </GridItem>
+                    </>
+                  )}
+                  {spec.identity.provider === 'oidc' && (
+                    <GridItem span={12}>
+                      <FormGroup label="Issuer URL" fieldId="oidc-issuer" isRequired>
+                        <TextInput
+                          id="oidc-issuer"
+                          placeholder="https://login.microsoftonline.com/.../v2.0"
+                          value={spec.identity.oidcIssuer}
+                          onChange={(_e, v) => updateIdentity('oidcIssuer', v)}
+                          validated={fieldValid(submitted, spec.identity.oidcIssuer)}
+                          isRequired
+                        />
+                      </FormGroup>
+                    </GridItem>
+                  )}
+                </Grid>
+              )}
             </FormSection>
           </ExpandableSection>
 

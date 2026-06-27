@@ -20,11 +20,22 @@ import {
   Content,
 } from '@patternfly/react-core';
 import { PlusCircleIcon, MinusCircleIcon } from '@patternfly/react-icons';
-import { k8sCreate } from '@openshift-console/dynamic-plugin-sdk';
+import { k8sCreate, k8sGet, k8sUpdate } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
 
 const DEFAULT_NAMESPACE = 'tenancies';
 const DEFAULT_MY_ASN = '64500';
+const DEMO_CLIENT_SECRET = 'VDRjA2vWjJwlSZQ9tickuGkBQpiiJHdN';
+
+const SecretModel = {
+  apiVersion: 'v1',
+  kind: 'Secret',
+  plural: 'secrets',
+  namespaced: true,
+  abbr: 'SEC',
+  label: 'Secret',
+  labelPlural: 'Secrets',
+};
 
 interface MetallbForm {
   myASN: string;
@@ -160,6 +171,25 @@ const CreateTenantPage: React.FC = () => {
   const updateIdentity = (key: keyof IdentityForm, val: string | boolean) =>
     setSpec((prev) => ({ ...prev, identity: { ...prev.identity, [key]: val } }));
 
+  const generateClientSecret = () => {
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const secret = btoa(String.fromCharCode(...bytes))
+      .replace(/[+/=]/g, '')
+      .slice(0, 32);
+    updateIdentity('clientSecret', secret);
+  };
+
+  const enableIdentity = (enabled: boolean) => {
+    updateIdentity('enabled', enabled);
+    if (enabled && !spec.identity.clientSecret.trim()) {
+      updateIdentity('clientSecret', DEMO_CLIENT_SECRET);
+    }
+    if (enabled) {
+      setIdentityExpanded(true);
+    }
+  };
+
   const validate = (): string[] => {
     const errs: string[] = [];
     if (!name.trim()) errs.push('Tenant name is required.');
@@ -242,29 +272,36 @@ const CreateTenantPage: React.FC = () => {
     return tenant;
   };
 
-  const createClientSecret = async (tenantName: string, secret: string) => {
-    await k8sCreate({
-      model: {
-        apiGroup: '',
-        apiVersion: 'v1',
-        kind: 'Secret',
-        plural: 'secrets',
-        namespaced: true,
-        abbr: 'SEC',
-        label: 'Secret',
-        labelPlural: 'Secrets',
-      },
-      data: {
-        apiVersion: 'v1',
-        kind: 'Secret',
-        metadata: {
-          name: `${tenantName}-client-secret`,
-          namespace: 'openshift-config',
-        },
-        type: 'Opaque',
-        stringData: { clientSecret: secret },
-      },
-    });
+  const upsertClientSecret = async (tenantName: string, secret: string) => {
+    const secretName = `${tenantName}-client-secret`;
+    const secretNs = 'openshift-config';
+    const payload = {
+      apiVersion: 'v1',
+      kind: 'Secret',
+      metadata: { name: secretName, namespace: secretNs },
+      type: 'Opaque',
+      stringData: { clientSecret: secret },
+    };
+    try {
+      await k8sCreate({ model: SecretModel, data: payload });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes('AlreadyExists') && !msg.includes('409')) {
+        if (msg.includes('Forbidden') || msg.includes('403')) {
+          throw new Error(
+            'Cannot create client secret in openshift-config — cluster-admin (or equivalent) is required for console SSO.',
+          );
+        }
+        throw err;
+      }
+      const existing = await k8sGet({ model: SecretModel, name: secretName, ns: secretNs });
+      await k8sUpdate({
+        model: SecretModel,
+        name: secretName,
+        ns: secretNs,
+        data: { ...existing, stringData: { clientSecret: secret } },
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -280,7 +317,7 @@ const CreateTenantPage: React.FC = () => {
     try {
       const tenantName = name.trim();
       if (spec.identity.enabled) {
-        await createClientSecret(tenantName, spec.identity.clientSecret.trim());
+        await upsertClientSecret(tenantName, spec.identity.clientSecret.trim());
       }
       await k8sCreate({ model: TenantModel, data: buildResource() });
       history.push(
@@ -628,12 +665,23 @@ const CreateTenantPage: React.FC = () => {
                   id="identity-enabled"
                   type="checkbox"
                   checked={spec.identity.enabled}
-                  onChange={(e) => updateIdentity('enabled', e.target.checked)}
+                  onChange={(e) => enableIdentity(e.target.checked)}
                 />
                 {' '}
                 <label htmlFor="identity-enabled">Enable console SSO for this tenant</label>
               </FormGroup>
               {spec.identity.enabled && (
+                <>
+                  <Alert
+                    variant="info"
+                    isInline
+                    title="Console SSO"
+                    style={{ marginBottom: '1rem' }}
+                  >
+                    Creates an OAuth client secret in <strong>openshift-config</strong>, a Keycloak
+                    realm (when provider is Keycloak), and registers an IdP via the identity
+                    reconciler. Requires cluster-admin to create the secret.
+                  </Alert>
                 <Grid hasGutter>
                   <GridItem span={6}>
                     <FormGroup label="Provider" fieldId="identity-provider">
@@ -651,14 +699,24 @@ const CreateTenantPage: React.FC = () => {
                   </GridItem>
                   <GridItem span={6}>
                     <FormGroup label="Client secret" fieldId="client-secret" isRequired>
-                      <TextInput
-                        id="client-secret"
-                        type="password"
-                        value={spec.identity.clientSecret}
-                        onChange={(_e, v) => updateIdentity('clientSecret', v)}
-                        validated={fieldValid(submitted, spec.identity.clientSecret)}
-                        isRequired
-                      />
+                      <InputGroup>
+                        <InputGroupItem isFill>
+                          <TextInput
+                            id="client-secret"
+                            type="password"
+                            placeholder="Demo default pre-filled when SSO is enabled"
+                            value={spec.identity.clientSecret}
+                            onChange={(_e, v) => updateIdentity('clientSecret', v)}
+                            validated={fieldValid(submitted, spec.identity.clientSecret)}
+                            isRequired
+                          />
+                        </InputGroupItem>
+                        <InputGroupItem>
+                          <Button variant="secondary" onClick={generateClientSecret}>
+                            Generate
+                          </Button>
+                        </InputGroupItem>
+                      </InputGroup>
                     </FormGroup>
                   </GridItem>
                   <GridItem span={6}>
@@ -724,6 +782,7 @@ const CreateTenantPage: React.FC = () => {
                     </GridItem>
                   )}
                 </Grid>
+                </>
               )}
             </FormSection>
           </ExpandableSection>

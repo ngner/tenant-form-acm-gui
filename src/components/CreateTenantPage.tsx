@@ -176,9 +176,10 @@ const CreateTenantPage: React.FC = () => {
   const generateClientSecret = () => {
     const bytes = new Uint8Array(24);
     crypto.getRandomValues(bytes);
+    // 24 bytes → 32 base64 chars with no padding; URL-safe via substitution (not removal).
     const secret = btoa(String.fromCharCode(...bytes))
-      .replace(/[+/=]/g, '')
-      .slice(0, 32);
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
     updateIdentity('clientSecret', secret);
   };
 

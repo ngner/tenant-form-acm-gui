@@ -127,17 +127,31 @@ spec:
                         namespace:
                           type: string
                           default: keycloak-system
+                          description: Namespace of the Keycloak CR (must already exist).
                         instanceName:
                           type: string
                           default: main
                           description: Keycloak CR name (keycloakCRName).
                         realm:
                           type: string
-                          description: Realm name. Defaults to tenant name.
+                          description: Existing realm name for OAuth issuer. Defaults to tenant name.
+                        manageRealm:
+                          type: boolean
+                          default: false
+                          description: >-
+                            When true, create/update a KeycloakRealmImport for this tenant.
+                            Leave false when the realm already exists (typical production).
                         seedUsers:
                           type: boolean
-                          default: true
-                          description: Create admin@/user@/viewer@ demo seed users.
+                          default: false
+                          description: >-
+                            When manageRealm is true, create admin@/user@/viewer@ demo users.
+                            Workshop use only — not for production.
+                        loginTheme:
+                          type: string
+                          description: >-
+                            Optional login theme on managed realms. Demo workshops only;
+                            custom CSS themes are applied outside policy (apply-themes.sh).
                     oidc:
                       type: object
                       description: External OIDC settings when provider is oidc.

@@ -53,6 +53,7 @@ interface IdentityForm {
   oidcIssuer: string;
   keycloakNamespace: string;
   keycloakInstance: string;
+  manageRealm: boolean;
   seedUsers: boolean;
 }
 
@@ -90,7 +91,8 @@ const defaults: TenantSpec = {
     oidcIssuer: '',
     keycloakNamespace: 'keycloak-system',
     keycloakInstance: 'main',
-    seedUsers: true,
+    manageRealm: false,
+    seedUsers: false,
   },
 };
 
@@ -261,8 +263,11 @@ const CreateTenantPage: React.FC = () => {
           namespace: spec.identity.keycloakNamespace.trim() || 'keycloak-system',
           instanceName: spec.identity.keycloakInstance.trim() || 'main',
           realm: tenantName,
-          seedUsers: spec.identity.seedUsers,
+          manageRealm: spec.identity.manageRealm,
         };
+        if (spec.identity.manageRealm && spec.identity.seedUsers) {
+          tenant.spec.identity.keycloak.seedUsers = true;
+        }
       } else {
         tenant.spec.identity.oidc = {
           issuer: spec.identity.oidcIssuer.trim(),
@@ -658,7 +663,7 @@ const CreateTenantPage: React.FC = () => {
           >
             <FormSection title="OpenShift OAuth identity provider">
               {sectionDescription(
-                'Optionally register a console login IdP for this tenant. Keycloak provisioning is automatic in demo mode; external OIDC (Azure, etc.) registers the OpenShift side and shows setup notes in tenant status.',
+                'Register an OpenShift console login IdP for this tenant. Production deployments typically use an existing customer Keycloak realm or external OIDC — only opt into realm creation for greenfield workshops.',
               )}
               <FormGroup fieldId="identity-enabled">
                 <input
@@ -678,9 +683,9 @@ const CreateTenantPage: React.FC = () => {
                     title="Console SSO"
                     style={{ marginBottom: '1rem' }}
                   >
-                    Creates an OAuth client secret in <strong>openshift-config</strong>, a Keycloak
-                    realm (when provider is Keycloak), and registers an IdP via the identity
-                    reconciler. Requires cluster-admin to create the secret.
+                    Stores an OAuth client secret in <strong>openshift-config</strong> and registers
+                    an OpenShift IdP via the identity reconciler. For Keycloak, the realm and OIDC
+                    client must already exist unless you explicitly enable realm creation below.
                   </Alert>
                 <Grid hasGutter>
                   <GridItem span={6}>
@@ -735,6 +740,14 @@ const CreateTenantPage: React.FC = () => {
                   </GridItem>
                   {spec.identity.provider === 'keycloak' && (
                     <>
+                      <GridItem span={12}>
+                        <Alert variant="warning" isInline title="Keycloak must already exist">
+                          A running Keycloak instance (Keycloak CR + route) is required in the
+                          namespace below before console SSO will work. Point <strong>Realm</strong>{' '}
+                          at an existing realm name unless you are provisioning a brand-new tenant
+                          with no users yet.
+                        </Alert>
+                      </GridItem>
                       <GridItem span={6}>
                         <FormGroup label="Keycloak namespace" fieldId="kc-ns">
                           <TextInput
@@ -754,17 +767,51 @@ const CreateTenantPage: React.FC = () => {
                         </FormGroup>
                       </GridItem>
                       <GridItem span={12}>
-                        <FormGroup fieldId="seed-users">
+                        <FormGroup fieldId="manage-realm">
                           <input
-                            id="seed-users"
+                            id="manage-realm"
                             type="checkbox"
-                            checked={spec.identity.seedUsers}
-                            onChange={(e) => updateIdentity('seedUsers', e.target.checked)}
+                            checked={spec.identity.manageRealm}
+                            onChange={(e) => {
+                              updateIdentity('manageRealm', e.target.checked);
+                              if (!e.target.checked) {
+                                updateIdentity('seedUsers', false);
+                              }
+                            }}
                           />
                           {' '}
-                          <label htmlFor="seed-users">Create demo seed users (admin@, user@, viewer@)</label>
+                          <label htmlFor="manage-realm">
+                            Create realm in Keycloak (KeycloakRealmImport)
+                          </label>
                         </FormGroup>
+                        <Content component="p" style={{ marginTop: '0.25rem', fontSize: '0.875rem' }}>
+                          Enable only for a <strong>new</strong> tenant with no existing realm, groups,
+                          or users. Leave unchecked when the customer already operates their own Keycloak
+                          or shares a platform instance — the reconciler will register OpenShift OAuth
+                          against the existing realm name ({name.trim() || 'tenant'}).
+                        </Content>
                       </GridItem>
+                      {spec.identity.manageRealm && (
+                        <GridItem span={12}>
+                          <FormGroup fieldId="seed-users">
+                            <input
+                              id="seed-users"
+                              type="checkbox"
+                              checked={spec.identity.seedUsers}
+                              onChange={(e) => updateIdentity('seedUsers', e.target.checked)}
+                            />
+                            {' '}
+                            <label htmlFor="seed-users">
+                              Create demo seed users (admin@, user@, viewer@ with password{' '}
+                              <code>password</code>)
+                            </label>
+                          </FormGroup>
+                          <Content component="p" style={{ marginTop: '0.25rem', fontSize: '0.875rem' }}>
+                            Workshop use only. Production tenants should federate real identities
+                            (LDAP, corporate IdP) instead of bootstrap accounts.
+                          </Content>
+                        </GridItem>
+                      )}
                     </>
                   )}
                   {spec.identity.provider === 'oidc' && (

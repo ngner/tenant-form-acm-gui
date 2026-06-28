@@ -27,7 +27,12 @@ oc apply -f "${SCRIPT_DIR}/00-namespace.yaml"
 oc create imagestream "${BC}" -n "${NS}" --dry-run=client -o yaml | oc apply -f -
 
 echo "==> [2/4] BuildConfig + build from Git..."
-if ! oc get buildconfig "${BC}" -n "${NS}" &>/dev/null; then
+SOURCE_TYPE="$(oc get buildconfig "${BC}" -n "${NS}" -o jsonpath='{.spec.source.type}' 2>/dev/null || echo none)"
+if [ "${SOURCE_TYPE}" != "Git" ]; then
+  if [ "${SOURCE_TYPE}" != "none" ]; then
+    echo "    Replacing ${SOURCE_TYPE} BuildConfig with Git source..."
+    oc delete buildconfig "${BC}" -n "${NS}"
+  fi
   oc new-build "${GIT_REPO}#${GIT_REF}" \
     --name="${BC}" \
     --strategy=docker \

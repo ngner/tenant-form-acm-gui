@@ -62,6 +62,7 @@ interface IdentityForm {
 interface TenantSpec {
   displayName: string;
   owner: string;
+  workloadNamespace: string;
   adminGroup: string;
   userGroup: string;
   viewerGroup: string;
@@ -75,6 +76,7 @@ interface TenantSpec {
 const defaults: TenantSpec = {
   displayName: '',
   owner: '',
+  workloadNamespace: '',
   adminGroup: '',
   userGroup: '',
   viewerGroup: '',
@@ -137,6 +139,8 @@ const CreateTenantPage: React.FC = () => {
   const effectiveViewerGroup = spec.viewerGroup.trim() || derivedViewerGroup;
   const effectiveVrf = spec.network.metallb.vrf.trim() || derivedVrf;
   const effectiveNamespace = namespace.trim() || DEFAULT_NAMESPACE;
+
+  const effectiveWorkloadNamespace = spec.workloadNamespace.trim() || name.trim();
 
   const updateSpec = <K extends keyof TenantSpec>(key: K, val: TenantSpec[K]) =>
     setSpec((prev) => ({ ...prev, [key]: val }));
@@ -218,7 +222,11 @@ const CreateTenantPage: React.FC = () => {
     const tenant: any = {
       apiVersion: `${TenantModel.apiGroup}/${TenantModel.apiVersion}`,
       kind: TenantModel.kind,
-      metadata: { name: name.trim(), namespace: effectiveNamespace },
+      metadata: {
+        name: name.trim(),
+        namespace: effectiveNamespace,
+        labels: { tenant: name.trim() },
+      },
       spec: {
         adminGroup: effectiveAdminGroup,
         userGroup: effectiveUserGroup,
@@ -230,6 +238,10 @@ const CreateTenantPage: React.FC = () => {
     };
     if (spec.displayName.trim()) tenant.spec.displayName = spec.displayName.trim();
     if (spec.owner.trim()) tenant.spec.owner = spec.owner.trim();
+    const tenantName = name.trim();
+    if (spec.workloadNamespace.trim() && spec.workloadNamespace.trim() !== tenantName) {
+      tenant.spec.workloadNamespace = spec.workloadNamespace.trim();
+    }
 
     const network: Record<string, unknown> = {};
     if (spec.network.udnSubnet.trim()) {
@@ -293,7 +305,7 @@ const CreateTenantPage: React.FC = () => {
     const payload = {
       apiVersion: 'v1',
       kind: 'Secret',
-      metadata: { name: secretName, namespace: secretNs },
+      metadata: { name: secretName, namespace: secretNs, labels: { tenant: tenantName } },
       type: 'Opaque',
       stringData: { clientSecret: secret },
     };
@@ -387,6 +399,29 @@ const CreateTenantPage: React.FC = () => {
                     onChange={(_e, v) => updateSpec('displayName', v)}
                   />
                 </FormGroup>
+              </GridItem>
+              <GridItem span={6}>
+                <FormGroup
+                  label="Workload namespace"
+                  fieldId="workload-namespace"
+                  labelHelp={helpPopover(
+                    'Namespace created on managed clusters for this tenant (quotas, UDN, VMs). Defaults to the tenant name when left blank (e.g. starwars). Use a suffix such as starwars-ns if you prefer.',
+                    'Workload namespace',
+                  )}
+                >
+                  <TextInput
+                    id="workload-namespace"
+                    placeholder={name.trim() || 'same as tenant name'}
+                    value={spec.workloadNamespace}
+                    onChange={(_e, v) => updateSpec('workloadNamespace', v)}
+                  />
+                </FormGroup>
+              </GridItem>
+              <GridItem span={12}>
+                <Content component="p" style={{ fontSize: '0.875rem', color: 'var(--pf-t--global--text--color--subtle)' }}>
+                  Managed cluster namespace: <strong>{effectiveWorkloadNamespace || '—'}</strong>
+                  {' '}(label <code>tenant={name.trim() || '…'}</code> on provisioned resources)
+                </Content>
               </GridItem>
               <GridItem span={6}>
                 <FormGroup

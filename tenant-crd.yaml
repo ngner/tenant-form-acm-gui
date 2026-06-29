@@ -82,6 +82,13 @@ spec:
                     namespace, kubevirt.io:view on VMs, and
                     acm-vm-fleet:view on the hub console.
                     Default naming convention: {tenantname}-tenant-viewer.
+                workloadNamespace:
+                  type: string
+                  description: >-
+                    Namespace created on managed clusters for this tenant's
+                    workloads (quotas, UDN, VMs). Defaults to the tenant name
+                    when unset (e.g. starwars). Use {tenant}-ns for a suffix
+                    convention.
 
                 # -----------------------------------------------------------
                 # Optional console SSO (OpenShift OAuth IdP)

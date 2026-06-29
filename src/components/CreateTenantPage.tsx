@@ -55,6 +55,8 @@ interface IdentityForm {
   keycloakInstance: string;
   manageRealm: boolean;
   seedUsers: boolean;
+  seedPassword: string;
+  requirePasswordChange: boolean;
 }
 
 interface TenantSpec {
@@ -93,6 +95,8 @@ const defaults: TenantSpec = {
     keycloakInstance: 'main',
     manageRealm: false,
     seedUsers: false,
+    seedPassword: 'password',
+    requirePasswordChange: false,
   },
 };
 
@@ -268,6 +272,11 @@ const CreateTenantPage: React.FC = () => {
         };
         if (spec.identity.manageRealm && spec.identity.seedUsers) {
           tenant.spec.identity.keycloak.seedUsers = true;
+          tenant.spec.identity.keycloak.seedPassword =
+            spec.identity.seedPassword.trim() || 'password';
+          if (spec.identity.requirePasswordChange) {
+            tenant.spec.identity.keycloak.requirePasswordChange = true;
+          }
         }
       } else {
         tenant.spec.identity.oidc = {
@@ -803,10 +812,43 @@ const CreateTenantPage: React.FC = () => {
                             />
                             {' '}
                             <label htmlFor="seed-users">
-                              Create demo seed users (admin@, user@, viewer@ with password{' '}
-                              <code>password</code>)
+                              Create demo seed users (admin@, user@, viewer@)
                             </label>
                           </FormGroup>
+                          {spec.identity.seedUsers && (
+                            <>
+                              <FormGroup
+                                label="Seed user password"
+                                fieldId="seed-password"
+                                labelHelp={helpPopover(
+                                  'Initial password for all bootstrap users. Stored in plain text on the Tenant CR — workshop use only.',
+                                  'Seed user password',
+                                )}
+                              >
+                                <TextInput
+                                  id="seed-password"
+                                  type="password"
+                                  value={spec.identity.seedPassword}
+                                  onChange={(_e, v) => updateIdentity('seedPassword', v)}
+                                  autoComplete="new-password"
+                                />
+                              </FormGroup>
+                              <FormGroup fieldId="require-password-change">
+                                <input
+                                  id="require-password-change"
+                                  type="checkbox"
+                                  checked={spec.identity.requirePasswordChange}
+                                  onChange={(e) =>
+                                    updateIdentity('requirePasswordChange', e.target.checked)
+                                  }
+                                />
+                                {' '}
+                                <label htmlFor="require-password-change">
+                                  Require password change on first login
+                                </label>
+                              </FormGroup>
+                            </>
+                          )}
                           <Content component="p" style={{ marginTop: '0.25rem', fontSize: '0.875rem' }}>
                             Workshop use only. Production tenants should federate real identities
                             (LDAP, corporate IdP) instead of bootstrap accounts.

@@ -147,6 +147,18 @@ spec:
                           description: >-
                             When manageRealm is true, create admin@/user@/viewer@ demo users.
                             Workshop use only — not for production.
+                        seedPassword:
+                          type: string
+                          default: password
+                          description: >-
+                            Initial password for seed users when seedUsers is true.
+                            Stored in plain text on the Tenant CR — workshop use only.
+                        requirePasswordChange:
+                          type: boolean
+                          default: false
+                          description: >-
+                            When true, seed users must change password on first login
+                            (Keycloak temporary credential).
                         loginTheme:
                           type: string
                           description: >-

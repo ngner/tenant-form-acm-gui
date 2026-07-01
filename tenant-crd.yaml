@@ -90,6 +90,18 @@ spec:
                     when unset (e.g. starwars). Use {tenant}-ns for a suffix
                     convention.
 
+                workloadProfile:
+                  type: string
+                  enum:
+                    - vms
+                    - containers
+                    - both
+                  default: vms
+                  description: >-
+                    Workloads to provision for this tenant. vms — VM/Fleet
+                    Virtualization (default); containers — application workloads;
+                    both — VM and container resources on capable clusters.
+
                 # -----------------------------------------------------------
                 # Optional console SSO (OpenShift OAuth IdP)
                 # -----------------------------------------------------------
@@ -298,6 +310,9 @@ spec:
         - name: User Group
           type: string
           jsonPath: .spec.userGroup
+        - name: Workload
+          type: string
+          jsonPath: .spec.workloadProfile
         - name: Viewer Group
           type: string
           jsonPath: .spec.viewerGroup

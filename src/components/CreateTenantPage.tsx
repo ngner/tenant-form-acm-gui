@@ -8,6 +8,8 @@ import {
   FormSection,
   FormGroupLabelHelp,
   TextInput,
+  FormSelect,
+  FormSelectOption,
   ExpandableSection,
   ActionGroup,
   Button,
@@ -59,10 +61,13 @@ interface IdentityForm {
   requirePasswordChange: boolean;
 }
 
+type WorkloadProfile = 'vms' | 'containers' | 'both';
+
 interface TenantSpec {
   displayName: string;
   owner: string;
   workloadNamespace: string;
+  workloadProfile: WorkloadProfile;
   adminGroup: string;
   userGroup: string;
   viewerGroup: string;
@@ -77,6 +82,7 @@ const defaults: TenantSpec = {
   displayName: '',
   owner: '',
   workloadNamespace: '',
+  workloadProfile: 'vms',
   adminGroup: '',
   userGroup: '',
   viewerGroup: '',
@@ -231,6 +237,7 @@ const CreateTenantPage: React.FC = () => {
         adminGroup: effectiveAdminGroup,
         userGroup: effectiveUserGroup,
         viewerGroup: effectiveViewerGroup,
+        workloadProfile: spec.workloadProfile,
         resourceQuota: { ...spec.resourceQuota },
         vmQuota: { ...spec.vmQuota },
         limitRange: { ...spec.limitRange },
@@ -422,6 +429,26 @@ const CreateTenantPage: React.FC = () => {
                   Managed cluster namespace: <strong>{effectiveWorkloadNamespace || '—'}</strong>
                   {' '}(label <code>tenant={name.trim() || '…'}</code> on provisioned resources)
                 </Content>
+              </GridItem>
+              <GridItem span={6}>
+                <FormGroup
+                  label="Workload profile"
+                  fieldId="workload-profile"
+                  labelHelp={helpPopover(
+                    'vms — Fleet Virtualization namespaces and quotas (default). containers — application workloads only. both — VM and container resources on capable clusters.',
+                    'Workload profile',
+                  )}
+                >
+                  <FormSelect
+                    id="workload-profile"
+                    value={spec.workloadProfile}
+                    onChange={(_e, v) => updateSpec('workloadProfile', v as WorkloadProfile)}
+                  >
+                    <FormSelectOption value="vms" label="VMs (Fleet Virtualization)" />
+                    <FormSelectOption value="containers" label="Containers" />
+                    <FormSelectOption value="both" label="Both" />
+                  </FormSelect>
+                </FormGroup>
               </GridItem>
               <GridItem span={6}>
                 <FormGroup

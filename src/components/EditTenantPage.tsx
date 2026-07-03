@@ -4,6 +4,7 @@ import { Alert, PageSection, Spinner, Title } from '@patternfly/react-core';
 import { k8sGet } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
 import { TenantResource } from '../tenantFormTypes';
+import { parseTenantResource } from '../tenantFormUtils';
 import TenantFormPage from './TenantFormPage';
 
 const EditTenantPage: React.FC = () => {
@@ -56,7 +57,14 @@ const EditTenantPage: React.FC = () => {
     );
   }
 
-  return <TenantFormPage mode="edit" existing={tenant} />;
+  return (
+    <TenantFormPage
+      key={`${tenant.metadata.namespace}/${tenant.metadata.name}`}
+      mode="edit"
+      existing={tenant}
+      initial={parseTenantResource(tenant)}
+    />
+  );
 };
 
 export default EditTenantPage;

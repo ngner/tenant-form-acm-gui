@@ -53,6 +53,8 @@ export const defaultTenantSpec = (): TenantSpecForm => ({
 
 const str = (v: unknown): string => (v === undefined || v === null ? '' : String(v));
 
+export const specField = str;
+
 const parseMetallb = (raw: Record<string, unknown> | undefined): MetallbForm => {
   if (!raw) {
     return defaultTenantSpec().network.metallb;
@@ -158,13 +160,25 @@ export function validateTenantForm(params: {
   effectiveUserGroup: string;
   spec: TenantSpecForm;
   identitySecretUnchanged: boolean;
+  existing?: TenantResource;
 }): string[] {
-  const { mode, name, effectiveAdminGroup, effectiveUserGroup, spec, identitySecretUnchanged } =
-    params;
+  const {
+    mode,
+    name,
+    effectiveAdminGroup,
+    effectiveUserGroup,
+    spec,
+    identitySecretUnchanged,
+    existing,
+  } = params;
+  const resolvedName = name.trim() || existing?.metadata?.name?.trim() || '';
+  const resolvedAdmin =
+    effectiveAdminGroup.trim() || str(existing?.spec?.adminGroup) || '';
+  const resolvedUser = effectiveUserGroup.trim() || str(existing?.spec?.userGroup) || '';
   const errs: string[] = [];
-  if (!name.trim()) errs.push('Tenant name is required.');
-  if (!effectiveAdminGroup) errs.push('Admin Group is required.');
-  if (!effectiveUserGroup) errs.push('User Group is required.');
+  if (!resolvedName) errs.push('Tenant name is required.');
+  if (!resolvedAdmin) errs.push('Admin Group is required.');
+  if (!resolvedUser) errs.push('User Group is required.');
   if (spec.identity.enabled) {
     const secretRequired =
       mode === 'create' || (mode === 'edit' && !identitySecretUnchanged);

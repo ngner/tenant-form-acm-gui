@@ -36,7 +36,7 @@ import {
   defaultTenantSpec,
   derivedGroups,
   demoClientSecretForEnable,
-  parseTenantResource,
+  specField,
   shouldExpandNetwork,
   upsertClientSecret,
   validateTenantForm,
@@ -60,28 +60,36 @@ const sectionDescription = (text: string): React.ReactElement => (
   </Content>
 );
 
+export interface TenantFormInitialValues {
+  name: string;
+  namespace: string;
+  spec: TenantSpecForm;
+  originalWorkloadProfile: WorkloadProfile;
+}
+
 export interface TenantFormPageProps {
   mode: TenantFormMode;
   existing?: TenantResource;
+  /** Pre-parsed values for edit mode — ensures form state matches the loaded CR. */
+  initial?: TenantFormInitialValues;
 }
 
-const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing }) => {
+const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial }) => {
   const history = useHistory();
   const isEdit = mode === 'edit';
-  const parsed = existing ? parseTenantResource(existing) : null;
 
-  const [name, setName] = React.useState(parsed?.name ?? '');
-  const [namespace, setNamespace] = React.useState(parsed?.namespace ?? DEFAULT_NAMESPACE);
-  const [spec, setSpec] = React.useState<TenantSpecForm>(
-    parsed?.spec ?? defaultTenantSpec(),
-  );
+  const [name, setName] = React.useState(initial?.name ?? '');
+  const [namespace, setNamespace] = React.useState(initial?.namespace ?? DEFAULT_NAMESPACE);
+  const [spec, setSpec] = React.useState<TenantSpecForm>(initial?.spec ?? defaultTenantSpec());
   const [originalWorkloadProfile] = React.useState<WorkloadProfile | null>(
-    parsed?.originalWorkloadProfile ?? null,
+    initial?.originalWorkloadProfile ?? null,
   );
   const [networkExpanded, setNetworkExpanded] = React.useState(
-    parsed ? shouldExpandNetwork(parsed.spec) : false,
+    initial ? shouldExpandNetwork(initial.spec) : false,
   );
-  const [identityExpanded, setIdentityExpanded] = React.useState(parsed?.spec.identity.enabled ?? false);
+  const [identityExpanded, setIdentityExpanded] = React.useState(
+    initial?.spec.identity.enabled ?? false,
+  );
   const [advancedExpanded, setAdvancedExpanded] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -173,6 +181,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing }) => {
       effectiveUserGroup,
       spec,
       identitySecretUnchanged,
+      existing,
     });
     if (errs.length) {
       setError(errs.join(' '));
@@ -180,14 +189,18 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing }) => {
     }
     setLoading(true);
     try {
-      const tenantName = name.trim();
+      const tenantName = name.trim() || existing?.metadata?.name?.trim() || '';
+      const adminGroup = effectiveAdminGroup.trim() || specField(existing?.spec?.adminGroup) || '';
+      const userGroup = effectiveUserGroup.trim() || specField(existing?.spec?.userGroup) || '';
+      const viewerGroup =
+        effectiveViewerGroup.trim() || specField(existing?.spec?.viewerGroup) || '';
       const resource = buildTenantResource({
         name: tenantName,
         namespace: effectiveNamespace,
         spec,
-        effectiveAdminGroup,
-        effectiveUserGroup,
-        effectiveViewerGroup,
+        effectiveAdminGroup: adminGroup,
+        effectiveUserGroup: userGroup,
+        effectiveViewerGroup: viewerGroup,
         effectiveVrf,
         existing,
       });

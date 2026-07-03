@@ -17,5 +17,28 @@
         "$codeRef": "CreateTenantPage"
       }
     }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/tenant-edit/ns/:ns/:name",
+      "component": {
+        "$codeRef": "EditTenantPage"
+      }
+    }
+  },
+  {
+    "type": "console.action/provider",
+    "properties": {
+      "model": {
+        "group": "dusty-seahorse.io",
+        "version": "v1alpha1",
+        "kind": "Tenant"
+      },
+      "provider": {
+        "$codeRef": "useTenantEditAction"
+      }
+    }
   }
 ]

@@ -1,7 +1,7 @@
 {
   "name": "tenant-form-acm-gui",
   "version": "0.0.1",
-  "description": "OpenShift Console Plugin for creating Tenant custom resources",
+  "description": "OpenShift Console Plugin for creating and editing Tenant custom resources",
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
@@ -35,9 +35,11 @@
     "name": "tenant-form-acm-gui",
     "version": "0.0.1",
     "displayName": "Tenant Management",
-    "description": "Create Tenant custom resources from a guided form in the ACM console.",
+    "description": "Create and edit Tenant custom resources from a guided form in the ACM console.",
     "exposedModules": {
-      "CreateTenantPage": "./components/CreateTenantPage"
+      "CreateTenantPage": "./components/CreateTenantPage",
+      "EditTenantPage": "./components/EditTenantPage",
+      "useTenantEditAction": "./tenantActionProvider"
     },
     "dependencies": {
       "@console/pluginAPI": "*"

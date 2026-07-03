@@ -29,7 +29,7 @@
     }
   },
   {
-    "type": "console.action/provider",
+    "type": "console.action/resource-provider",
     "properties": {
       "model": {
         "group": "dusty-seahorse.io",

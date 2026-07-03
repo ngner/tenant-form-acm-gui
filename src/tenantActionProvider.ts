@@ -10,7 +10,7 @@ const useTenantEditAction = (resource: K8sResourceCommon): [Action[], boolean] =
     return [
       {
         id: 'edit-tenant-form',
-        label: 'Edit tenant (form)',
+        label: 'Edit Tenant',
         insertBefore: 'edit-resource',
         cta: {
           href: `/tenant-edit/ns/${resource.metadata.namespace}/${resource.metadata.name}`,

@@ -19,8 +19,10 @@ Create Tenant (`/tenant-create`) is unchanged on this branch; only additions are
 ## Usage
 
 1. Fleet Management → search **Tenant** → open a tenant CR
-2. Actions (⋮) → **Edit tenant (form)**
-3. Or navigate directly: `/tenant-edit/ns/tenancies/<name>`
+2. Open the **Edit** tab on the details page (guided form), or
+3. Actions (⋮) → **Edit Tenant** (replaces the YAML editor)
+
+Direct URL: `/tenant-edit/ns/tenancies/<name>`
 
 ## Safe to edit
 

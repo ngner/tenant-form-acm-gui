@@ -72,9 +72,11 @@ export interface TenantFormPageProps {
   existing?: TenantResource;
   /** Pre-parsed values for edit mode — ensures form state matches the loaded CR. */
   initial?: TenantFormInitialValues;
+  /** When true, omit page title (e.g. embedded in a details tab). */
+  embedded?: boolean;
 }
 
-const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial }) => {
+const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial, embedded }) => {
   const history = useHistory();
   const isEdit = mode === 'edit';
 
@@ -228,9 +230,11 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
 
   return (
     <>
-      <PageSection variant="default">
-        <Title headingLevel="h1">{isEdit ? `Edit Tenant: ${name}` : 'Create Tenant'}</Title>
-      </PageSection>
+      {!embedded && (
+        <PageSection variant="default">
+          <Title headingLevel="h1">{isEdit ? `Edit Tenant: ${name}` : 'Create Tenant'}</Title>
+        </PageSection>
+      )}
       <PageSection>
         {isEdit && (
           <Alert variant="info" isInline title="Editing an existing tenant" style={{ marginBottom: '1rem' }}>

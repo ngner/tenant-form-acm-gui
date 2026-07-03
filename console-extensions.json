@@ -13,6 +13,7 @@
     "properties": {
       "exact": true,
       "path": "/tenant-create",
+      "perspective": "acm",
       "component": {
         "$codeRef": "CreateTenantPage"
       }
@@ -23,8 +24,35 @@
     "properties": {
       "exact": true,
       "path": "/tenant-edit/ns/:ns/:name",
+      "perspective": "acm",
       "component": {
         "$codeRef": "EditTenantPage"
+      }
+    }
+  },
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": {
+        "group": "dusty-seahorse.io",
+        "version": "v1alpha1",
+        "kind": "Tenant"
+      },
+      "page": {
+        "name": "Edit",
+        "href": "edit-form"
+      },
+      "component": {
+        "$codeRef": "EditTenantTab"
+      }
+    }
+  },
+  {
+    "type": "console.action/filter",
+    "properties": {
+      "contextId": "resource",
+      "filter": {
+        "$codeRef": "filterTenantYamlEdit"
       }
     }
   },

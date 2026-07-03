@@ -39,7 +39,9 @@
     "exposedModules": {
       "CreateTenantPage": "./components/CreateTenantPage",
       "EditTenantPage": "./components/EditTenantPage",
-      "useTenantEditAction": "./tenantActionProvider"
+      "EditTenantTab": "./components/EditTenantTab",
+      "useTenantEditAction": "./tenantActionProvider",
+      "filterTenantYamlEdit": "./tenantActionFilter"
     },
     "dependencies": {
       "@console/pluginAPI": "*"

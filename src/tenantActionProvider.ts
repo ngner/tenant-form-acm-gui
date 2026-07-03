@@ -13,9 +13,10 @@ const useTenantEditAction = (
     {
       id: 'edit-tenant-form',
       label: 'Edit tenant (form)',
-      cta: true,
       insertBefore: 'edit-resource',
-      href: `/tenant-edit/ns/${obj.metadata.namespace}/${obj.metadata.name}`,
+      cta: {
+        href: `/tenant-edit/ns/${obj.metadata.namespace}/${obj.metadata.name}`,
+      },
     },
   ];
 };

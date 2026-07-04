@@ -1,11 +1,10 @@
-# Edit Tenant feature (`feature/edit-tenant`)
+# Tenants page (`feature/edit-tenant`)
 
-Guided edit form for existing `Tenant` CRs — isolated on its own branch for easy rollback.
+Guided tenant management in the ACM console — list, create, and edit `Tenant` CRs without overriding the built-in CR YAML editor.
 
 ## Rollback
 
 ```bash
-# Stop using edit — redeploy plugin from the previous branch
 git checkout feature/tenant-identity-sso
 ./deployment/deploy-cluster-build.sh   # or deploy-git-build.sh
 
@@ -14,15 +13,23 @@ git branch -D feature/edit-tenant
 git push mandibuswell --delete feature/edit-tenant
 ```
 
-Create Tenant (`/tenant-create`) is unchanged on this branch; only additions are edit route and kebab action.
-
 ## Usage
 
-1. Fleet Management → search **Tenant** → open a tenant CR
-2. Open the **Edit** tab on the details page (guided form), or
-3. Actions (⋮) → **Edit Tenant** (replaces the YAML editor)
+1. Fleet Management → **Tenants** in the left nav
+2. Search or pick a tenant from the list → **Edit**
+3. **Create tenant** from the list page toolbar
 
-Direct URL: `/tenant-edit/ns/tenancies/<name>`
+Routes:
+
+| Path | Purpose |
+|------|---------|
+| `/tenants` | List and search |
+| `/tenants/create` | Create form |
+| `/tenants/edit/:ns/:name` | Edit form |
+
+Legacy redirects: `/tenant-create` and `/tenant-edit/ns/:ns/:name` still work.
+
+The native Tenant CR details page and YAML editor are unchanged — use them for advanced debugging.
 
 ## Safe to edit
 

@@ -2,9 +2,9 @@
   {
     "type": "console.navigation/href",
     "properties": {
-      "id": "create-tenant",
-      "name": "Create Tenant",
-      "href": "/tenant-create",
+      "id": "tenants",
+      "name": "Tenants",
+      "href": "/tenants",
       "perspective": "acm"
     }
   },
@@ -12,7 +12,18 @@
     "type": "console.page/route",
     "properties": {
       "exact": true,
-      "path": "/tenant-create",
+      "path": "/tenants",
+      "perspective": "acm",
+      "component": {
+        "$codeRef": "TenantsListPage"
+      }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/tenants/create",
       "perspective": "acm",
       "component": {
         "$codeRef": "CreateTenantPage"
@@ -23,7 +34,7 @@
     "type": "console.page/route",
     "properties": {
       "exact": true,
-      "path": "/tenant-edit/ns/:ns/:name",
+      "path": "/tenants/edit/:ns/:name",
       "perspective": "acm",
       "component": {
         "$codeRef": "EditTenantPage"
@@ -31,41 +42,24 @@
     }
   },
   {
-    "type": "console.tab/horizontalNav",
+    "type": "console.page/route",
     "properties": {
-      "model": {
-        "group": "dusty-seahorse.io",
-        "version": "v1alpha1",
-        "kind": "Tenant"
-      },
-      "page": {
-        "name": "Edit",
-        "href": "edit-form"
-      },
+      "exact": true,
+      "path": "/tenant-create",
+      "perspective": "acm",
       "component": {
-        "$codeRef": "EditTenantTab"
+        "$codeRef": "LegacyCreateRedirect"
       }
     }
   },
   {
-    "type": "console.action/filter",
+    "type": "console.page/route",
     "properties": {
-      "contextId": "resource",
-      "filter": {
-        "$codeRef": "filterTenantYamlEdit"
-      }
-    }
-  },
-  {
-    "type": "console.action/resource-provider",
-    "properties": {
-      "model": {
-        "group": "dusty-seahorse.io",
-        "version": "v1alpha1",
-        "kind": "Tenant"
-      },
-      "provider": {
-        "$codeRef": "useTenantEditAction"
+      "exact": true,
+      "path": "/tenant-edit/ns/:ns/:name",
+      "perspective": "acm",
+      "component": {
+        "$codeRef": "LegacyEditRedirect"
       }
     }
   }

@@ -37,11 +37,11 @@
     "displayName": "Tenant Management",
     "description": "Create and edit Tenant custom resources from a guided form in the ACM console.",
     "exposedModules": {
+      "TenantsListPage": "./components/TenantsListPage",
       "CreateTenantPage": "./components/CreateTenantPage",
       "EditTenantPage": "./components/EditTenantPage",
-      "EditTenantTab": "./components/EditTenantTab",
-      "useTenantEditAction": "./tenantActionProvider",
-      "filterTenantYamlEdit": "./tenantActionFilter"
+      "LegacyCreateRedirect": "./components/LegacyCreateRedirect",
+      "LegacyEditRedirect": "./components/LegacyEditRedirect"
     },
     "dependencies": {
       "@console/pluginAPI": "*"

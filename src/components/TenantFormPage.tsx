@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useHistory } from 'react-router-dom';
+import { Link, useHistory } from 'react-router-dom';
 import {
   PageSection,
   Title,
@@ -24,6 +24,7 @@ import {
 import { PlusCircleIcon, MinusCircleIcon } from '@patternfly/react-icons';
 import { k8sCreate, k8sUpdate } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
+import { TENANTS_LIST_PATH } from '../tenantRoutes';
 import {
   DEFAULT_NAMESPACE,
   TenantFormMode,
@@ -218,9 +219,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
       } else {
         await k8sCreate({ model: TenantModel, data: resource });
       }
-      history.push(
-        `/k8s/ns/${effectiveNamespace}/${TenantModel.apiGroup}~${TenantModel.apiVersion}~${TenantModel.kind}/${tenantName}`,
-      );
+      history.push(TENANTS_LIST_PATH);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -232,6 +231,13 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
     <>
       {!embedded && (
         <PageSection variant="default">
+          <Button
+            variant="link"
+            component={(props) => <Link {...props} to={TENANTS_LIST_PATH} />}
+            style={{ paddingLeft: 0, marginBottom: '0.5rem' }}
+          >
+            Back to Tenants
+          </Button>
           <Title headingLevel="h1">{isEdit ? `Edit Tenant: ${name}` : 'Create Tenant'}</Title>
         </PageSection>
       )}
@@ -779,7 +785,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
             <Button type="submit" variant="primary" isLoading={loading} isDisabled={loading}>
               {isEdit ? 'Save changes' : 'Create'}
             </Button>
-            <Button variant="link" onClick={() => history.goBack()}>
+            <Button variant="link" onClick={() => history.push(TENANTS_LIST_PATH)}>
               Cancel
             </Button>
           </ActionGroup>

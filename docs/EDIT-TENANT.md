@@ -53,7 +53,7 @@ The native Tenant CR details page and YAML editor are unchanged — use them for
 | Tenant name | Locked after create |
 | Workload namespace | Locked after create |
 | CR namespace (`tenancies`) | Locked in edit mode |
-| Workload profile | Editable with warning — does not remove old provisioned resources |
+| Workload profile | Editable with warning — does not remove old provisioned resources; delete manually via fleet search. Widening the profile (e.g. vms → both) adds resources on capable clusters on the next policy cycle (same Tenant CR and namespace name). |
 
 ## Deploy this branch
 

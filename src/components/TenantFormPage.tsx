@@ -142,6 +142,16 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
   const effectiveWorkloadNamespace = workloadNamespace;
   const profileChanged =
     isEdit && originalWorkloadProfile !== null && spec.workloadProfile !== originalWorkloadProfile;
+  const hadContainers =
+    originalWorkloadProfile === 'containers' || originalWorkloadProfile === 'both';
+  const hadVms = originalWorkloadProfile === 'vms' || originalWorkloadProfile === 'both';
+  const wantsContainers =
+    spec.workloadProfile === 'containers' || spec.workloadProfile === 'both';
+  const wantsVms = spec.workloadProfile === 'vms' || spec.workloadProfile === 'both';
+  const profileRemovesResources =
+    profileChanged && ((hadContainers && !wantsContainers) || (hadVms && !wantsVms));
+  const profileAddsResources =
+    profileChanged && ((!hadContainers && wantsContainers) || (!hadVms && wantsVms));
 
   const updateSpec = <K extends keyof TenantSpecForm>(key: K, val: TenantSpecForm[K]) =>
     setSpec((prev) => ({ ...prev, [key]: val }));
@@ -303,8 +313,32 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
         )}
         {profileChanged && (
           <Alert variant="warning" isInline title="Workload profile changed" style={{ marginBottom: '1rem' }}>
-            Changing workload profile does not remove resources already provisioned under the
-            previous profile. Review spoke clusters after saving.
+            {profileRemovesResources && (
+              <>
+                Policies do not remove resources already provisioned under the previous profile.
+                After saving, open{' '}
+                <Button
+                  variant="link"
+                  isInline
+                  component={(props) => <Link {...props} to={TENANTS_ACM_SEARCH_PATH} />}
+                >
+                  Search all Tenant resources
+                </Button>
+                , find stale namespaces and related objects on affected clusters, and delete
+                them manually.
+              </>
+            )}
+            {profileRemovesResources && profileAddsResources && ' '}
+            {profileAddsResources && (
+              <>
+                {profileRemovesResources
+                  ? 'New resources for the expanded profile are provisioned automatically on the next policy cycle on clusters with matching capability labels (for example container resources on capability-container spokes). The Tenant CR and workload namespace name stay the same — this is not a new tenant.'
+                  : 'New resources for this profile are provisioned automatically on the next policy cycle on clusters with matching capability labels. Existing resources from the previous profile are not removed — delete those manually via fleet search if needed.'}
+              </>
+            )}
+            {!profileRemovesResources && !profileAddsResources && (
+              <>Review spoke clusters after saving.</>
+            )}
           </Alert>
         )}
         {error && (
@@ -387,7 +421,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
                   label="Workload profile"
                   fieldId="workload-profile"
                   labelHelp={helpPopover(
-                    'vms — Fleet Virtualization (default). containers — applications only. both — VM and container resources.',
+                    'Controls which ACM policies provision resources on capable clusters. vms — VM placement (AAQ, KubeVirt RBAC). containers — managed placement (ResourceQuota, no AAQ). both — both policy sets. Narrowing the profile (for example both → vms) does not delete existing resources — remove them manually via fleet search. Widening the profile (for example vms → both) adds new resources on the next policy cycle where cluster capability labels match; the workload namespace name is unchanged.',
                     'Workload profile',
                   )}
                 >

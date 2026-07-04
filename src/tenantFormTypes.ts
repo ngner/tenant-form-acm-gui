@@ -47,6 +47,7 @@ export interface TenantResource {
   metadata: {
     name: string;
     namespace: string;
+    uid?: string;
     resourceVersion?: string;
     labels?: Record<string, string>;
   };

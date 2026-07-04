@@ -20,6 +20,7 @@ import {
   InputGroup,
   InputGroupItem,
   Content,
+  Spinner,
 } from '@patternfly/react-core';
 import { PlusCircleIcon, MinusCircleIcon } from '@patternfly/react-icons';
 import { k8sCreate, k8sUpdate } from '@openshift-console/dynamic-plugin-sdk';
@@ -37,6 +38,7 @@ import {
   defaultTenantSpec,
   derivedGroups,
   demoClientSecretForEnable,
+  parseTenantResource,
   resolveTenantIdentity,
   specField,
   shouldExpandNetwork,
@@ -82,25 +84,46 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
   const history = useHistory();
   const isEdit = mode === 'edit';
 
-  const [name, setName] = React.useState(() => initial?.name ?? existing?.metadata?.name ?? '');
-  const [namespace, setNamespace] = React.useState(
-    () => initial?.namespace ?? existing?.metadata?.namespace ?? DEFAULT_NAMESPACE,
+  const [name, setName] = React.useState('');
+  const [namespace, setNamespace] = React.useState(DEFAULT_NAMESPACE);
+  const [spec, setSpec] = React.useState<TenantSpecForm>(() => defaultTenantSpec());
+  const [originalWorkloadProfile, setOriginalWorkloadProfile] = React.useState<WorkloadProfile | null>(
+    null,
   );
-  const [spec, setSpec] = React.useState<TenantSpecForm>(() => initial?.spec ?? defaultTenantSpec());
-  const [originalWorkloadProfile] = React.useState<WorkloadProfile | null>(
-    () => initial?.originalWorkloadProfile ?? null,
-  );
-  const [networkExpanded, setNetworkExpanded] = React.useState(
-    () => (initial ? shouldExpandNetwork(initial.spec) : false),
-  );
-  const [identityExpanded, setIdentityExpanded] = React.useState(
-    () => initial?.spec.identity.enabled ?? false,
-  );
+  const [networkExpanded, setNetworkExpanded] = React.useState(false);
+  const [identityExpanded, setIdentityExpanded] = React.useState(false);
   const [advancedExpanded, setAdvancedExpanded] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [identitySecretUnchanged, setIdentitySecretUnchanged] = React.useState(isEdit);
+  const [formReady, setFormReady] = React.useState(!isEdit);
+
+  const hydrateKey = isEdit
+    ? `${existing?.metadata?.uid ?? ''}:${existing?.metadata?.resourceVersion ?? ''}`
+    : 'create';
+
+  React.useLayoutEffect(() => {
+    if (!isEdit) {
+      setFormReady(true);
+      return;
+    }
+    if (!existing?.metadata?.name || !existing?.spec) {
+      setFormReady(false);
+      return;
+    }
+    const parsed = parseTenantResource(existing);
+    setName(parsed.name);
+    setNamespace(parsed.namespace);
+    setSpec(parsed.spec);
+    setOriginalWorkloadProfile(parsed.originalWorkloadProfile);
+    setNetworkExpanded(shouldExpandNetwork(parsed.spec));
+    setIdentityExpanded(parsed.spec.identity.enabled);
+    setIdentitySecretUnchanged(true);
+    setSubmitted(false);
+    setError('');
+    setFormReady(true);
+  }, [isEdit, hydrateKey, existing]);
 
   const { tenantName, tenantNamespace, workloadNamespace } = resolveTenantIdentity({
     name,
@@ -248,9 +271,16 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
           >
             Back to Tenants
           </Button>
-          <Title headingLevel="h1">{isEdit ? `Edit Tenant: ${tenantName}` : 'Create Tenant'}</Title>
+          <Title headingLevel="h1">
+            {isEdit ? `Edit Tenant: ${tenantName || '…'}` : 'Create Tenant'}
+          </Title>
         </PageSection>
       )}
+      {isEdit && !formReady ? (
+        <PageSection>
+          <Spinner size="lg" />
+        </PageSection>
+      ) : (
       <PageSection>
         {isEdit && (
           <Alert variant="info" isInline title="Editing an existing tenant" style={{ marginBottom: '1rem' }}>
@@ -812,6 +842,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
           </ActionGroup>
         </Form>
       </PageSection>
+      )}
     </>
   );
 };

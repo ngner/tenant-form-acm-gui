@@ -1,52 +1,55 @@
 import * as React from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, PageSection, Spinner, Title } from '@patternfly/react-core';
-import { k8sGet } from '@openshift-console/dynamic-plugin-sdk';
+import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
-import { DEFAULT_NAMESPACE, TenantResource } from '../tenantFormTypes';
-import { parseTenantResource } from '../tenantFormUtils';
+import { TenantResource } from '../tenantFormTypes';
 import TenantFormPage from './TenantFormPage';
 
+const isTenantResource = (resource: unknown): resource is TenantResource =>
+  Boolean(
+    resource &&
+      typeof resource === 'object' &&
+      (resource as TenantResource).kind === 'Tenant' &&
+      (resource as TenantResource).metadata?.name,
+  );
+
 const EditTenantPage: React.FC = () => {
-  const { ns, name } = useParams<{ ns: string; name: string }>();
-  const [tenant, setTenant] = React.useState<TenantResource | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState('');
+  const { ns: nsParam, name: nameParam } = useParams<{ ns: string; name: string }>();
+  const ns = decodeURIComponent(nsParam ?? '');
+  const name = decodeURIComponent(nameParam ?? '');
 
-  React.useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError('');
-    k8sGet({ model: TenantModel, name, ns })
-      .then((resource) => {
-        if (!cancelled) setTenant(resource as TenantResource);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [name, ns]);
+  const watchResource = React.useMemo(
+    () =>
+      name && ns
+        ? {
+            groupVersionKind: {
+              group: TenantModel.apiGroup,
+              version: TenantModel.apiVersion,
+              kind: TenantModel.kind,
+            },
+            name,
+            namespace: ns,
+            isList: false,
+          }
+        : null,
+    [name, ns],
+  );
 
-  const initial = React.useMemo(() => {
-    if (!tenant) {
-      return undefined;
-    }
-    const parsed = parseTenantResource(tenant);
-    return {
-      ...parsed,
-      name: parsed.name || name || '',
-      namespace: parsed.namespace || ns || DEFAULT_NAMESPACE,
-    };
-  }, [tenant, name, ns]);
+  const [resource, loaded, loadError] = useK8sWatchResource<TenantResource>(watchResource);
+  const tenant = isTenantResource(resource) ? resource : null;
 
-  if (loading) {
+  if (!name || !ns) {
+    return (
+      <PageSection>
+        <Alert variant="danger" title="Invalid tenant URL" isInline>
+          Expected /tenants/edit/tenancies/&lt;name&gt;
+        </Alert>
+      </PageSection>
+    );
+  }
+
+  if (!loaded) {
     return (
       <PageSection>
         <Spinner size="lg" />
@@ -54,7 +57,13 @@ const EditTenantPage: React.FC = () => {
     );
   }
 
-  if (error || !tenant) {
+  if (loadError || !tenant) {
+    const message =
+      loadError instanceof Error
+        ? loadError.message
+        : loadError
+          ? String(loadError)
+          : `Tenant ${ns}/${name} not found.`;
     return (
       <>
         <PageSection variant="default">
@@ -62,19 +71,20 @@ const EditTenantPage: React.FC = () => {
         </PageSection>
         <PageSection>
           <Alert variant="danger" title="Could not load tenant" isInline>
-            {error || `Tenant ${ns}/${name} not found.`}
+            {message}
           </Alert>
         </PageSection>
       </>
     );
   }
 
+  const tenantKey = `${tenant.metadata.resourceVersion ?? ''}/${tenant.metadata.uid ?? tenant.metadata.name}`;
+
   return (
     <TenantFormPage
-      key={`${tenant.metadata.namespace}/${tenant.metadata.name}`}
+      key={tenantKey}
       mode="edit"
       existing={tenant}
-      initial={initial}
     />
   );
 };

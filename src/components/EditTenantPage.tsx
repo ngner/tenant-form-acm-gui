@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { useParams } from 'react-router-dom';
 import { Alert, PageSection, Spinner, Title } from '@patternfly/react-core';
 import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
 import { TenantResource } from '../tenantFormTypes';
+import { useTenantEditParams } from '../useTenantEditParams';
 import TenantFormPage from './TenantFormPage';
 
 const isTenantResource = (resource: unknown): resource is TenantResource =>
@@ -15,9 +15,7 @@ const isTenantResource = (resource: unknown): resource is TenantResource =>
   );
 
 const EditTenantPage: React.FC = () => {
-  const { ns: nsParam, name: nameParam } = useParams<{ ns: string; name: string }>();
-  const ns = decodeURIComponent(nsParam ?? '');
-  const name = decodeURIComponent(nameParam ?? '');
+  const { ns, name } = useTenantEditParams();
 
   const watchResource = React.useMemo(
     () =>
@@ -43,7 +41,7 @@ const EditTenantPage: React.FC = () => {
     return (
       <PageSection>
         <Alert variant="danger" title="Invalid tenant URL" isInline>
-          Expected /tenants/edit/tenancies/&lt;name&gt;
+          Expected /tenants/edit/&lt;name&gt; or /tenants/edit/tenancies/&lt;name&gt;
         </Alert>
       </PageSection>
     );

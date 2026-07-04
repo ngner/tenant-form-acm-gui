@@ -34,7 +34,10 @@
     "type": "console.page/route",
     "properties": {
       "exact": true,
-      "path": "/tenants/edit/:ns/:name",
+      "path": [
+        "/tenants/edit/:ns/:name",
+        "/tenants/edit/:name"
+      ],
       "perspective": "acm",
       "component": {
         "$codeRef": "EditTenantPage"

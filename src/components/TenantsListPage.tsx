@@ -178,7 +178,7 @@ const TenantsListPage: React.FC = () => {
                     <Button
                       variant="link"
                       isInline
-                      onClick={() => history.push(tenantEditPath(row.namespace, row.name))}
+                      onClick={() => history.push(tenantEditPath(row.name, row.namespace))}
                     >
                       {row.name}
                     </Button>
@@ -198,7 +198,7 @@ const TenantsListPage: React.FC = () => {
                   <td className="pf-v6-c-table__td" role="cell" data-label="Actions">
                     <Button
                       variant="secondary"
-                      onClick={() => history.push(tenantEditPath(row.namespace, row.name))}
+                      onClick={() => history.push(tenantEditPath(row.name, row.namespace))}
                     >
                       Edit
                     </Button>

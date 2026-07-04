@@ -4,7 +4,7 @@ import { tenantEditPath } from '../tenantRoutes';
 
 const LegacyEditRedirect: React.FC = () => {
   const { ns, name } = useParams<{ ns: string; name: string }>();
-  return <Redirect to={tenantEditPath(ns, name)} />;
+  return <Redirect to={tenantEditPath(name, ns)} />;
 };
 
 export default LegacyEditRedirect;

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Alert, PageSection, Spinner, Title } from '@patternfly/react-core';
 import { k8sGet } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
-import { TenantResource } from '../tenantFormTypes';
+import { DEFAULT_NAMESPACE, TenantResource } from '../tenantFormTypes';
 import { parseTenantResource } from '../tenantFormUtils';
 import TenantFormPage from './TenantFormPage';
 
@@ -34,6 +34,18 @@ const EditTenantPage: React.FC = () => {
     };
   }, [name, ns]);
 
+  const initial = React.useMemo(() => {
+    if (!tenant) {
+      return undefined;
+    }
+    const parsed = parseTenantResource(tenant);
+    return {
+      ...parsed,
+      name: parsed.name || name || '',
+      namespace: parsed.namespace || ns || DEFAULT_NAMESPACE,
+    };
+  }, [tenant, name, ns]);
+
   if (loading) {
     return (
       <PageSection>
@@ -62,7 +74,7 @@ const EditTenantPage: React.FC = () => {
       key={`${tenant.metadata.namespace}/${tenant.metadata.name}`}
       mode="edit"
       existing={tenant}
-      initial={parseTenantResource(tenant)}
+      initial={initial}
     />
   );
 };

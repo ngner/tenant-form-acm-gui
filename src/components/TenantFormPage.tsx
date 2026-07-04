@@ -37,6 +37,7 @@ import {
   defaultTenantSpec,
   derivedGroups,
   demoClientSecretForEnable,
+  resolveTenantIdentity,
   specField,
   shouldExpandNetwork,
   upsertClientSecret,
@@ -81,17 +82,19 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
   const history = useHistory();
   const isEdit = mode === 'edit';
 
-  const [name, setName] = React.useState(initial?.name ?? '');
-  const [namespace, setNamespace] = React.useState(initial?.namespace ?? DEFAULT_NAMESPACE);
-  const [spec, setSpec] = React.useState<TenantSpecForm>(initial?.spec ?? defaultTenantSpec());
+  const [name, setName] = React.useState(() => initial?.name ?? existing?.metadata?.name ?? '');
+  const [namespace, setNamespace] = React.useState(
+    () => initial?.namespace ?? existing?.metadata?.namespace ?? DEFAULT_NAMESPACE,
+  );
+  const [spec, setSpec] = React.useState<TenantSpecForm>(() => initial?.spec ?? defaultTenantSpec());
   const [originalWorkloadProfile] = React.useState<WorkloadProfile | null>(
-    initial?.originalWorkloadProfile ?? null,
+    () => initial?.originalWorkloadProfile ?? null,
   );
   const [networkExpanded, setNetworkExpanded] = React.useState(
-    initial ? shouldExpandNetwork(initial.spec) : false,
+    () => (initial ? shouldExpandNetwork(initial.spec) : false),
   );
   const [identityExpanded, setIdentityExpanded] = React.useState(
-    initial?.spec.identity.enabled ?? false,
+    () => initial?.spec.identity.enabled ?? false,
   );
   const [advancedExpanded, setAdvancedExpanded] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
@@ -99,13 +102,21 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
   const [error, setError] = React.useState('');
   const [identitySecretUnchanged, setIdentitySecretUnchanged] = React.useState(isEdit);
 
-  const derived = derivedGroups(name);
+  const { tenantName, tenantNamespace, workloadNamespace } = resolveTenantIdentity({
+    name,
+    namespace,
+    spec,
+    existing,
+    initial,
+  });
+
+  const derived = derivedGroups(tenantName);
   const effectiveAdminGroup = spec.adminGroup.trim() || derived.admin;
   const effectiveUserGroup = spec.userGroup.trim() || derived.user;
   const effectiveViewerGroup = spec.viewerGroup.trim() || derived.viewer;
   const effectiveVrf = spec.network.metallb.vrf.trim() || derived.vrf;
-  const effectiveNamespace = namespace.trim() || DEFAULT_NAMESPACE;
-  const effectiveWorkloadNamespace = spec.workloadNamespace.trim() || name.trim();
+  const effectiveNamespace = tenantNamespace;
+  const effectiveWorkloadNamespace = workloadNamespace;
   const profileChanged =
     isEdit && originalWorkloadProfile !== null && spec.workloadProfile !== originalWorkloadProfile;
 
@@ -179,7 +190,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
     setError('');
     const errs = validateTenantForm({
       mode,
-      name,
+      name: tenantName,
       effectiveAdminGroup,
       effectiveUserGroup,
       spec,
@@ -192,7 +203,6 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
     }
     setLoading(true);
     try {
-      const tenantName = name.trim() || existing?.metadata?.name?.trim() || '';
       const adminGroup = effectiveAdminGroup.trim() || specField(existing?.spec?.adminGroup) || '';
       const userGroup = effectiveUserGroup.trim() || specField(existing?.spec?.userGroup) || '';
       const viewerGroup =
@@ -238,7 +248,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
           >
             Back to Tenants
           </Button>
-          <Title headingLevel="h1">{isEdit ? `Edit Tenant: ${name}` : 'Create Tenant'}</Title>
+          <Title headingLevel="h1">{isEdit ? `Edit Tenant: ${tenantName}` : 'Create Tenant'}</Title>
         </PageSection>
       )}
       <PageSection>
@@ -265,14 +275,23 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
             <Grid hasGutter>
               <GridItem span={6}>
                 <FormGroup label="Tenant Name" isRequired fieldId="tenant-name">
-                  <TextInput
-                    id="tenant-name"
-                    value={name}
-                    onChange={(_e, v) => setName(v)}
-                    validated={fieldValid(submitted, name)}
-                    isRequired
-                    isDisabled={isEdit}
-                  />
+                  {isEdit ? (
+                    <TextInput
+                      id="tenant-name"
+                      value={tenantName}
+                      readOnlyVariant="default"
+                      readOnly
+                      isRequired
+                    />
+                  ) : (
+                    <TextInput
+                      id="tenant-name"
+                      value={name}
+                      onChange={(_e, v) => setName(v)}
+                      validated={fieldValid(submitted, name)}
+                      isRequired
+                    />
+                  )}
                 </FormGroup>
               </GridItem>
               <GridItem span={6}>
@@ -302,10 +321,11 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
                 >
                   <TextInput
                     id="workload-namespace"
-                    placeholder={name.trim() || 'same as tenant name'}
-                    value={spec.workloadNamespace}
+                    placeholder={tenantName || 'same as tenant name'}
+                    value={isEdit ? effectiveWorkloadNamespace : spec.workloadNamespace}
                     onChange={(_e, v) => updateSpec('workloadNamespace', v)}
-                    isDisabled={isEdit}
+                    readOnlyVariant={isEdit ? 'default' : undefined}
+                    readOnly={isEdit}
                   />
                 </FormGroup>
               </GridItem>
@@ -316,7 +336,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
                 >
                   Managed cluster namespace: <strong>{effectiveWorkloadNamespace || '—'}</strong>
                   {' '}
-                  (label <code>tenant={name.trim() || '…'}</code> on provisioned resources)
+                  (label <code>tenant={tenantName || '…'}</code> on provisioned resources)
                 </Content>
               </GridItem>
               <GridItem span={6}>
@@ -584,7 +604,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
                     <FormGroup label="Console IdP name" fieldId="console-idp-name">
                       <TextInput
                         id="console-idp-name"
-                        placeholder={name.trim() ? `${name.trim()}-idp` : 'tenant-idp'}
+                        placeholder={tenantName ? `${tenantName}-idp` : 'tenant-idp'}
                         value={spec.identity.consoleLoginName}
                         onChange={(_e, v) => updateIdentity('consoleLoginName', v)}
                       />
@@ -702,10 +722,11 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
                   <FormGroup label="Cluster Groups Namespace" fieldId="tenant-namespace">
                     <TextInput
                       id="tenant-namespace"
-                      value={namespace}
+                      value={isEdit ? effectiveNamespace : namespace}
                       placeholder={DEFAULT_NAMESPACE}
                       onChange={(_e, v) => setNamespace(v)}
-                      isDisabled={isEdit}
+                      readOnlyVariant={isEdit ? 'default' : undefined}
+                      readOnly={isEdit}
                     />
                   </FormGroup>
                 </GridItem>

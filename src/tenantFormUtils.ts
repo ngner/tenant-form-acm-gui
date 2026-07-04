@@ -143,6 +143,35 @@ export function parseTenantResource(tenant: TenantResource): {
   return { name, namespace, spec, originalWorkloadProfile: workloadProfile };
 }
 
+/** Resolve immutable tenant identity from form state, parsed initial, or loaded CR. */
+export function resolveTenantIdentity(params: {
+  name: string;
+  namespace: string;
+  spec: TenantSpecForm;
+  existing?: TenantResource;
+  initial?: { name?: string; namespace?: string };
+}): {
+  tenantName: string;
+  tenantNamespace: string;
+  workloadNamespace: string;
+} {
+  const tenantName =
+    params.name.trim() ||
+    params.initial?.name?.trim() ||
+    params.existing?.metadata?.name?.trim() ||
+    '';
+  const tenantNamespace =
+    params.namespace.trim() ||
+    params.initial?.namespace?.trim() ||
+    params.existing?.metadata?.namespace?.trim() ||
+    DEFAULT_NAMESPACE;
+  const specWorkload = params.spec.workloadNamespace.trim();
+  const existingWorkload = str(params.existing?.spec?.workloadNamespace);
+  const workloadNamespace =
+    specWorkload || (existingWorkload && existingWorkload !== tenantName ? existingWorkload : tenantName);
+  return { tenantName, tenantNamespace, workloadNamespace };
+}
+
 export function derivedGroups(name: string) {
   const n = name.trim();
   return {
@@ -212,7 +241,10 @@ export function buildTenantResource(params: {
     effectiveVrf,
     existing,
   } = params;
-  const tenantName = name.trim();
+  const tenantName =
+    name.trim() || existing?.metadata?.name?.trim() || '';
+  const tenantNamespace =
+    namespace.trim() || existing?.metadata?.namespace?.trim() || DEFAULT_NAMESPACE;
 
   const tenant: Record<string, unknown> = {
     apiVersion: 'dusty-seahorse.io/v1alpha1',
@@ -220,7 +252,7 @@ export function buildTenantResource(params: {
     metadata: {
       ...(existing?.metadata ?? {}),
       name: tenantName,
-      namespace: namespace.trim() || DEFAULT_NAMESPACE,
+      namespace: tenantNamespace,
       labels: { ...(existing?.metadata?.labels ?? {}), tenant: tenantName },
     },
     spec: {

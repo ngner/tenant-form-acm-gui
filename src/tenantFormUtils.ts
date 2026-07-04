@@ -99,6 +99,7 @@ export function parseTenantResource(tenant: TenantResource): {
   namespace: string;
   spec: TenantSpecForm;
   originalWorkloadProfile: WorkloadProfile;
+  originalIdentityEnabled: boolean;
 } {
   const name = tenant.metadata.name;
   const namespace = tenant.metadata.namespace || DEFAULT_NAMESPACE;
@@ -140,7 +141,13 @@ export function parseTenantResource(tenant: TenantResource): {
     identity: parseIdentity(s.identity as Record<string, unknown>),
   };
 
-  return { name, namespace, spec, originalWorkloadProfile: workloadProfile };
+  return {
+    name,
+    namespace,
+    spec,
+    originalWorkloadProfile: workloadProfile,
+    originalIdentityEnabled: spec.identity.enabled,
+  };
 }
 
 /** Resolve immutable tenant identity from form state, parsed initial, or loaded CR. */
@@ -330,7 +337,22 @@ export function buildTenantResource(params: {
     }
     (tenant.spec as Record<string, unknown>).identity = identity;
   } else if (existing?.spec?.identity) {
-    (tenant.spec as Record<string, unknown>).identity = { enabled: false };
+    const prev = existing.spec.identity as Record<string, unknown>;
+    const prevKeycloak = (prev.keycloak ?? {}) as Record<string, unknown>;
+    (tenant.spec as Record<string, unknown>).identity = {
+      enabled: false,
+      ...(prev.clientSecretRef ? { clientSecretRef: prev.clientSecretRef } : {}),
+      ...(prevKeycloak.manageRealm
+        ? {
+            keycloak: {
+              namespace: str(prevKeycloak.namespace) || 'keycloak-system',
+              instanceName: str(prevKeycloak.instanceName) || 'main',
+              realm: str(prevKeycloak.realm) || tenantName,
+              manageRealm: true,
+            },
+          }
+        : {}),
+    };
   }
 
   return tenant;

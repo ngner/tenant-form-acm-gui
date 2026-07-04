@@ -69,6 +69,7 @@ export interface TenantFormInitialValues {
   namespace: string;
   spec: TenantSpecForm;
   originalWorkloadProfile: WorkloadProfile;
+  originalIdentityEnabled: boolean;
 }
 
 export interface TenantFormPageProps {
@@ -90,6 +91,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
   const [originalWorkloadProfile, setOriginalWorkloadProfile] = React.useState<WorkloadProfile | null>(
     null,
   );
+  const [originalIdentityEnabled, setOriginalIdentityEnabled] = React.useState(false);
   const [networkExpanded, setNetworkExpanded] = React.useState(false);
   const [identityExpanded, setIdentityExpanded] = React.useState(false);
   const [advancedExpanded, setAdvancedExpanded] = React.useState(false);
@@ -117,6 +119,7 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
     setNamespace(parsed.namespace);
     setSpec(parsed.spec);
     setOriginalWorkloadProfile(parsed.originalWorkloadProfile);
+    setOriginalIdentityEnabled(parsed.originalIdentityEnabled);
     setNetworkExpanded(shouldExpandNetwork(parsed.spec));
     setIdentityExpanded(parsed.spec.identity.enabled);
     setIdentitySecretUnchanged(true);
@@ -152,6 +155,8 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
     profileChanged && ((hadContainers && !wantsContainers) || (hadVms && !wantsVms));
   const profileAddsResources =
     profileChanged && ((!hadContainers && wantsContainers) || (!hadVms && wantsVms));
+  const ssoDisabled =
+    isEdit && originalIdentityEnabled && !spec.identity.enabled;
 
   const updateSpec = <K extends keyof TenantSpecForm>(key: K, val: TenantSpecForm[K]) =>
     setSpec((prev) => ({ ...prev, [key]: val }));
@@ -339,6 +344,14 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
             {!profileRemovesResources && !profileAddsResources && (
               <>Review spoke clusters after saving.</>
             )}
+          </Alert>
+        )}
+        {ssoDisabled && (
+          <Alert variant="warning" isInline title="Console SSO will be disabled" style={{ marginBottom: '1rem' }}>
+            After saving, the identity reconciler removes the OpenShift OAuth IdP and client secret
+            on the next cycle (and the platform-managed Keycloak realm when applicable). To turn SSO
+            back on, supply a new client secret — a fresh IdP is registered without clashing with
+            the old one.
           </Alert>
         )}
         {error && (

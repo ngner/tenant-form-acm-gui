@@ -25,7 +25,7 @@ import {
 import { PlusCircleIcon, MinusCircleIcon } from '@patternfly/react-icons';
 import { k8sCreate, k8sUpdate } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
-import { TENANTS_LIST_PATH } from '../tenantRoutes';
+import { TENANTS_ACM_SEARCH_PATH, TENANTS_LIST_PATH } from '../tenantRoutes';
 import {
   DEFAULT_NAMESPACE,
   TenantFormMode,
@@ -282,6 +282,19 @@ const TenantFormPage: React.FC<TenantFormPageProps> = ({ mode, existing, initial
         </PageSection>
       ) : (
       <PageSection>
+        {!embedded && (
+          <Alert variant="info" isInline title="Hub control configuration" style={{ marginBottom: '1rem' }}>
+            This form creates or updates Tenant CRs on the hub ({DEFAULT_NAMESPACE} namespace) only.
+            Tenants on managed clusters are provisioned by policy and cannot be edited here.{' '}
+            <Button
+              variant="link"
+              isInline
+              component={(props) => <Link {...props} to={TENANTS_ACM_SEARCH_PATH} />}
+            >
+              Search all Tenant resources (fleet-wide)
+            </Button>
+          </Alert>
+        )}
         {isEdit && (
           <Alert variant="info" isInline title="Editing an existing tenant" style={{ marginBottom: '1rem' }}>
             Changes apply on the next policy cycle. Tenant name and workload namespace cannot be

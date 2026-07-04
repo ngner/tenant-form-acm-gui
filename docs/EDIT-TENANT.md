@@ -16,8 +16,16 @@ git push mandibuswell --delete feature/edit-tenant
 ## Usage
 
 1. Fleet Management → **Tenants** in the left nav
-2. Search or pick a tenant from the list → **Edit**
+2. Search or pick a hub tenant from the list → **Edit**
 3. **Create tenant** from the list page toolbar
+4. **Search all Tenant resources** — fleet-wide read-only view of Tenant CRs on all clusters (not editable here)
+
+Hub vs fleet:
+
+| View | Scope | Editable in this plugin |
+|------|-------|-------------------------|
+| **Tenants** list (`/tenants`) | Hub `tenancies` namespace | Yes — create and edit |
+| **Fleet-wide search** (`/multicloud/search?filters=…kind:Tenant`) | All managed clusters | No — read-only discovery |
 
 Routes:
 

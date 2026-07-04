@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { useHistory } from 'react-router-dom';
+import { Link, useHistory } from 'react-router-dom';
 import {
   Alert,
   Bullseye,
   Button,
+  Content,
   EmptyState,
   EmptyStateBody,
   Label,
@@ -16,11 +17,11 @@ import {
   ToolbarGroup,
   ToolbarItem,
 } from '@patternfly/react-core';
-import { PlusCircleIcon } from '@patternfly/react-icons';
+import { ExternalLinkAltIcon, PlusCircleIcon, SearchIcon } from '@patternfly/react-icons';
 import { k8sList } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
 import { DEFAULT_NAMESPACE, TenantResource, WorkloadProfile } from '../tenantFormTypes';
-import { TENANTS_CREATE_PATH, tenantEditPath } from '../tenantRoutes';
+import { TENANTS_ACM_SEARCH_PATH, TENANTS_CREATE_PATH, tenantEditPath } from '../tenantRoutes';
 import { specField } from '../tenantFormUtils';
 
 interface TenantRow {
@@ -94,13 +95,39 @@ const TenantsListPage: React.FC = () => {
     <>
       <PageSection variant="default">
         <Title headingLevel="h1">Tenants</Title>
+        <Content
+          component="p"
+          style={{ marginTop: '0.5rem', color: 'var(--pf-t--global--text--color--subtle)' }}
+        >
+          Hub control configuration — Tenant CRs in the <strong>{DEFAULT_NAMESPACE}</strong> namespace.
+          Create and edit here drives ACM policy from the hub.
+        </Content>
       </PageSection>
       <PageSection>
+        <Alert
+          variant="info"
+          isInline
+          title="View tenants across all clusters"
+          style={{ marginBottom: '1rem' }}
+        >
+          Tenant resources on managed clusters are provisioned by policy and are not editable here.
+          Use fleet search for a read-only view of every Tenant CR in the fleet.{' '}
+          <Button
+            variant="link"
+            isInline
+            icon={<ExternalLinkAltIcon />}
+            iconPosition="right"
+            component={(props) => <Link {...props} to={TENANTS_ACM_SEARCH_PATH} />}
+          >
+            Search all Tenant resources
+          </Button>
+        </Alert>
+
         <Toolbar>
           <ToolbarContent>
             <ToolbarItem>
               <SearchInput
-                aria-label="Search tenants"
+                aria-label="Search hub tenants"
                 placeholder="Search by name, display name, or owner"
                 value={filter}
                 onChange={(_e, value) => setFilter(value)}
@@ -108,6 +135,15 @@ const TenantsListPage: React.FC = () => {
               />
             </ToolbarItem>
             <ToolbarGroup align={{ default: 'alignEnd' }}>
+              <ToolbarItem>
+                <Button
+                  variant="secondary"
+                  icon={<SearchIcon />}
+                  component={(props) => <Link {...props} to={TENANTS_ACM_SEARCH_PATH} />}
+                >
+                  Fleet-wide search
+                </Button>
+              </ToolbarItem>
               <ToolbarItem>
                 <Button
                   variant="primary"

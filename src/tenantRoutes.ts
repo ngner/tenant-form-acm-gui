@@ -3,6 +3,11 @@ import { DEFAULT_NAMESPACE } from './tenantFormTypes';
 export const TENANTS_LIST_PATH = '/tenants';
 export const TENANTS_CREATE_PATH = '/tenants/create';
 
+/** ACM Resources search — all Tenant CRs across managed clusters (read-only discovery). */
+export const TENANTS_ACM_SEARCH_PATH = `/multicloud/search?filters=${encodeURIComponent(
+  JSON.stringify({ textsearch: 'kind:Tenant' }),
+)}`;
+
 /** Edit URL — namespace omitted when tenant CRs live in tenancies. */
 export const tenantEditPath = (name: string, ns: string = DEFAULT_NAMESPACE): string =>
   ns === DEFAULT_NAMESPACE

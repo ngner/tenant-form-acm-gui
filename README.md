@@ -113,6 +113,101 @@ console plugin proxy.
 ## Cluster Deployment
 
 All Kubernetes manifests and helper scripts live in the `deployment/` directory.
+
+### Build on OpenShift (recommended for workshop / RHDP clusters)
+
+When you do **not** have local Podman/Docker — or you want the cluster to compile the
+plugin the same way every time — build inside OpenShift and deploy to the integrated
+registry. This is how the Create Tenant plugin is run on the ACM demo hub.
+
+**Prerequisites**
+
+```bash
+# From demo-setups (RHDP example — adjust env name if different):
+cd demo-setups && ./bin/connect my-demo
+export KUBECONFIG="$PWD/tmp/my-demo.kubeconfig"
+export HTTPS_PROXY="socks5://localhost:9050"
+
+oc whoami
+oc whoami --show-console
+```
+
+The Tenant CRD must exist (`oc apply -f deployment/01-tenant-crd.yaml` if needed).
+
+#### Option A — Git build (after pushing to GitHub)
+
+Push your branch, then on any machine with `oc` access to the hub:
+
+```bash
+git clone https://github.com/mandibuswell/tenant-form-acm-gui.git
+cd tenant-form-acm-gui
+git checkout feature/tenant-identity-sso   # or your branch
+
+chmod +x deployment/deploy-git-build.sh
+./deployment/deploy-git-build.sh
+```
+
+Environment overrides:
+
+```bash
+GIT_REPO=https://github.com/mandibuswell/tenant-form-acm-gui.git \
+GIT_REF=feature/tenant-identity-sso \
+./deployment/deploy-git-build.sh
+```
+
+The script creates namespace `tenant-form-acm-gui`, a Docker-strategy BuildConfig, builds
+from the Dockerfile in Git (~5–10 min for `npm ci` + webpack), pushes to the integrated
+registry, and runs `deploy.sh`.
+
+**OpenShift console (equivalent):** Developer → **+Add** → **Import from Git**
+
+| Field | Value |
+| ----- | ----- |
+| Git repository URL | `https://github.com/mandibuswell/tenant-form-acm-gui.git` |
+| Git reference | `feature/tenant-identity-sso` |
+| Build strategy | Docker |
+| Namespace | `tenant-form-acm-gui` |
+| Output tag | `tenant-form-acm-gui:latest` |
+
+After the build completes, set the Deployment image and ensure the ConsolePlugin is
+enabled (or run `./deployment/deploy.sh` with
+`IMAGE=image-registry.openshift-image-registry.svc:5000/tenant-form-acm-gui/tenant-form-acm-gui:latest`).
+
+#### Option B — Binary upload (local clone, no Git push)
+
+Upload the working tree from your laptop/bastion:
+
+```bash
+chmod +x deployment/deploy-cluster-build.sh
+./deployment/deploy-cluster-build.sh
+```
+
+Uses `oc start-build --from-dir=.` — useful for uncommitted local changes.
+
+#### Option C — Local Podman + integrated registry
+
+Requires Podman on the build host:
+
+```bash
+./deployment/deploy-local.sh
+```
+
+#### Verify and use
+
+```bash
+oc get builds -n tenant-form-acm-gui
+oc get pods -n tenant-form-acm-gui
+oc get consoleplugins tenant-form-acm-gui
+```
+
+Open **Fleet Management → Create Tenant** or
+`https://<console-url>/tenant-create`. Hard-refresh or incognito if the old bundle is
+cached.
+
+---
+
+### Deploy a pre-built Quay image
+
 Clone the repo to your bastion host, log in with `oc`, and run the deploy
 script:
 
@@ -198,9 +293,12 @@ Deployment and Service with it), and optionally deletes the Tenant CRD.
 │   ├── 01-tenant-crd.yaml    # Tenant CRD
 │   ├── 02-deployment.yaml    # Deployment + Service (TLS via service-CA)
 │   ├── 03-consoleplugin.yaml # ConsolePlugin registration
-│   ├── build.sh              # Build + push container image via podman
-│   ├── deploy.sh             # One-command install (prompts for quay.io org)
-│   └── undeploy.sh           # One-command teardown
+│   ├── build.sh                  # Build + push container image via podman
+│   ├── deploy.sh                 # Deploy pre-built image (prompts for quay.io org)
+│   ├── deploy-git-build.sh       # Build from GitHub on-cluster + deploy (recommended)
+│   ├── deploy-cluster-build.sh   # Binary upload build on-cluster + deploy
+│   ├── deploy-local.sh           # Local podman build + push to integrated registry
+│   └── undeploy.sh               # One-command teardown
 └── src/
     ├── models.ts             # K8sModel for dusty-seahorse.io/v1alpha1 Tenant
     └── components/

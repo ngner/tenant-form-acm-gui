@@ -17,10 +17,35 @@ spec:
     - name: v1alpha1
       served: true
       storage: true
+      subresources:
+        status: {}
       schema:
         openAPIV3Schema:
           type: object
           properties:
+            status:
+              type: object
+              properties:
+                identity:
+                  type: object
+                  properties:
+                    phase:
+                      type: string
+                      description: Pending, Ready, PendingExternalSetup, or Error.
+                    idpName:
+                      type: string
+                    callbackURL:
+                      type: string
+                    issuer:
+                      type: string
+                    clientId:
+                      type: string
+                    message:
+                      type: string
+                    externalSetupNotes:
+                      type: array
+                      items:
+                        type: string
             spec:
               type: object
               required:
@@ -57,6 +82,107 @@ spec:
                     namespace, kubevirt.io:view on VMs, and
                     acm-vm-fleet:view on the hub console.
                     Default naming convention: {tenantname}-tenant-viewer.
+                workloadNamespace:
+                  type: string
+                  description: >-
+                    Namespace created on managed clusters for this tenant's
+                    workloads (quotas, UDN, VMs). Defaults to the tenant name
+                    when unset (e.g. starwars). Use {tenant}-ns for a suffix
+                    convention.
+
+                # -----------------------------------------------------------
+                # Optional console SSO (OpenShift OAuth IdP)
+                # -----------------------------------------------------------
+                identity:
+                  type: object
+                  description: >-
+                    Optional OpenShift console login integration. When enabled,
+                    policies provision Keycloak realms (provider=keycloak) or
+                    register external OIDC IdPs and surface setup notes in status.
+                  properties:
+                    enabled:
+                      type: boolean
+                      default: false
+                      description: Enable console SSO for this tenant.
+                    provider:
+                      type: string
+                      enum:
+                        - keycloak
+                        - oidc
+                      description: keycloak = platform-managed realm; oidc = external IdP (Azure, etc.).
+                    consoleLoginName:
+                      type: string
+                      description: OpenShift OAuth identity provider name. Defaults to {tenant}-idp.
+                    clientId:
+                      type: string
+                      description: OIDC client ID. Defaults to openshift-{tenant}.
+                    clientSecretRef:
+                      type: object
+                      description: Secret holding the OIDC client secret (openshift-config).
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                          default: openshift-config
+                      required:
+                        - name
+                    keycloak:
+                      type: object
+                      description: Keycloak options when provider is keycloak.
+                      properties:
+                        namespace:
+                          type: string
+                          default: keycloak-system
+                          description: Namespace of the Keycloak CR (must already exist).
+                        instanceName:
+                          type: string
+                          default: main
+                          description: Keycloak CR name (keycloakCRName).
+                        realm:
+                          type: string
+                          description: Existing realm name for OAuth issuer. Defaults to tenant name.
+                        manageRealm:
+                          type: boolean
+                          default: false
+                          description: >-
+                            When true, create/update a KeycloakRealmImport for this tenant.
+                            Leave false when the realm already exists (typical production).
+                        seedUsers:
+                          type: boolean
+                          default: false
+                          description: >-
+                            When manageRealm is true, create admin@/user@/viewer@ demo users.
+                            Workshop use only — not for production.
+                        seedPassword:
+                          type: string
+                          default: password
+                          description: >-
+                            Initial password for seed users when seedUsers is true.
+                            Stored in plain text on the Tenant CR — workshop use only.
+                        requirePasswordChange:
+                          type: boolean
+                          default: false
+                          description: >-
+                            When true, seed users must change password on first login
+                            (Keycloak temporary credential).
+                        loginTheme:
+                          type: string
+                          description: >-
+                            Optional login theme on managed realms. Demo workshops only;
+                            custom CSS themes are applied outside policy (apply-themes.sh).
+                    oidc:
+                      type: object
+                      description: External OIDC settings when provider is oidc.
+                      properties:
+                        issuer:
+                          type: string
+                          description: Issuer URL (e.g. Azure AD v2 endpoint).
+                        claims:
+                          type: object
+                          additionalProperties:
+                            type: string
+                          description: Claim mappings (groups, preferredUsername, name, email).
 
                 # -----------------------------------------------------------
                 # ResourceQuota — namespace totals (all pods + PVCs)

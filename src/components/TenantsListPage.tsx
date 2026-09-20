@@ -27,7 +27,7 @@ import {
   ToolbarGroup,
   ToolbarItem,
 } from '@patternfly/react-core';
-import { EllipsisVIcon, ExternalLinkAltIcon, PlusCircleIcon, SearchIcon } from '@patternfly/react-icons';
+import { EllipsisVIcon, ExternalLinkAltIcon, PlusCircleIcon, SearchIcon, TagIcon } from '@patternfly/react-icons';
 import { k8sDelete, k8sList } from '@openshift-console/dynamic-plugin-sdk';
 import { TenantModel } from '../models';
 import { DEFAULT_NAMESPACE, TenantResource, WorkloadProfile } from '../tenantFormTypes';
@@ -41,6 +41,7 @@ import {
   tenantWorkloadsSearchPath,
 } from '../tenantRoutes';
 import { specField } from '../tenantFormUtils';
+import ClusterCapabilitiesModal from './ClusterCapabilitiesModal';
 
 interface TenantRow {
   name: string;
@@ -159,6 +160,7 @@ const TenantsListPage: React.FC = () => {
   const [pendingDelete, setPendingDelete] = React.useState<TenantRow | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState('');
+  const [labelClustersOpen, setLabelClustersOpen] = React.useState(false);
 
   const loadTenants = React.useCallback(() => {
     setLoading(true);
@@ -259,6 +261,15 @@ const TenantsListPage: React.FC = () => {
               />
             </ToolbarItem>
             <ToolbarGroup align={{ default: 'alignEnd' }}>
+              <ToolbarItem>
+                <Button
+                  variant="secondary"
+                  icon={<TagIcon />}
+                  onClick={() => setLabelClustersOpen(true)}
+                >
+                  Label clusters
+                </Button>
+              </ToolbarItem>
               <ToolbarItem>
                 <Button
                   variant="secondary"
@@ -364,6 +375,11 @@ const TenantsListPage: React.FC = () => {
           </table>
         )}
       </PageSection>
+
+      <ClusterCapabilitiesModal
+        isOpen={labelClustersOpen}
+        onClose={() => setLabelClustersOpen(false)}
+      />
 
       <Modal
         variant="small"

@@ -106,8 +106,9 @@ const TenantsHelpContent: React.FC = () => (
       form.
     </Content>
     <Content component={ContentVariants.p} style={{ marginTop: '0.75rem' }}>
-      Label clusters from Fleet Management (Clusters) or with{' '}
-      <code>oc label managedcluster</code> on the hub:
+      Prefer <strong>Label clusters</strong> on the Tenants list for a quick checkbox UI. You can
+      also label from Fleet Management (Clusters) or with <code>oc label managedcluster</code> on
+      the hub:
     </Content>
     <pre
       style={{
